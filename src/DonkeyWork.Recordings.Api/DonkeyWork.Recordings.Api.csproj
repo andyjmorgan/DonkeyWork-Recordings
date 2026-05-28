@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\common\DonkeyWork.Recordings.Persistence\DonkeyWork.Recordings.Persistence.csproj" />
+    <ProjectReference Include="..\identity\DonkeyWork.Recordings.Identity.Api\DonkeyWork.Recordings.Identity.Api.csproj" />
+    <ProjectReference Include="..\storage\DonkeyWork.Recordings.Storage.Api\DonkeyWork.Recordings.Storage.Api.csproj" />
+    <ProjectReference Include="..\audio\DonkeyWork.Recordings.Audio.Api\DonkeyWork.Recordings.Audio.Api.csproj" />
+    <ProjectReference Include="..\mcp\DonkeyWork.Recordings.Mcp.Api\DonkeyWork.Recordings.Mcp.Api.csproj" />
+  </ItemGroup>
+
+</Project>

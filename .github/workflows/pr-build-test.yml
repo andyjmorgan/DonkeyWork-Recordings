@@ -1,0 +1,100 @@
+name: PR Build & Test
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: [self-hosted, Linux, X64]
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'src/**'
+              - '!src/frontend/**'
+              - 'test/**'
+              - '*.slnx'
+              - 'Dockerfile'
+              - 'Dockerfile.runtime'
+              - '_nuget.config'
+              - '.github/workflows/pr-build-test.yml'
+            frontend:
+              - 'src/frontend/**'
+              - '.github/workflows/pr-build-test.yml'
+
+  backend-build-test:
+    name: Backend Build & Test
+    needs: [changes]
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      DOTNET_INSTALL_DIR: ${{ github.workspace }}/.dotnet
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Configure NuGet for local proxy
+        run: cp _nuget.config nuget.config
+
+      - name: Restore dependencies
+        run: dotnet restore DonkeyWork.Recordings.slnx
+
+      - name: Build
+        run: dotnet build DonkeyWork.Recordings.slnx -c Release --no-restore
+
+      - name: Test (CI tier — excludes live smoke + e2e)
+        run: |
+          dotnet test DonkeyWork.Recordings.slnx -c Release --no-build --verbosity normal \
+            --filter "Category!=LiveSmoke&Category!=E2E"
+
+  frontend-build-test:
+    name: Frontend Build & Test
+    needs: [changes]
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: [self-hosted, Linux, X64]
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: src/frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm --filter @donkeywork-recordings/web exec tsc -b
+
+      - name: Build
+        run: pnpm run build

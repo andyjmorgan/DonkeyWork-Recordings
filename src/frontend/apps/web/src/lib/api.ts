@@ -1,0 +1,153 @@
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
+
+async function json<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetchWithAuth(url, init);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new ApiError(res.status, body || res.statusText);
+  }
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
+}
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export interface TtsRecordingV1 {
+  id: string;
+  name: string;
+  description: string;
+  filePath: string;
+  transcript: string;
+  contentType: string;
+  sizeBytes: number;
+  durationSeconds: number;
+  voice?: string;
+  language?: string;
+  collectionId?: string;
+  sequenceNumber?: number;
+  chapterTitle?: string;
+  status: 'Pending' | 'Generating' | 'Ready' | 'Failed';
+  progress: number;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AudioCollectionV1 {
+  id: string;
+  name: string;
+  description: string;
+  coverImagePath?: string;
+  defaultVoice?: string;
+  defaultLanguage?: string;
+  tone?: string;
+  author?: string;
+  authorEmail?: string;
+  itunesCategory?: string;
+  isExplicit: boolean;
+  link?: string;
+  recordingCount: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ListResponse<T> { items: T[]; totalCount: number }
+
+export interface TtsVoice { id: string; language: string; name: string; emotion?: string }
+
+export interface StartAudioGenerationRequest {
+  text: string;
+  name: string;
+  description?: string;
+  voice?: string;
+  language?: string;
+  collectionId?: string;
+  sequenceNumber?: number;
+  chapterTitle?: string;
+}
+
+export interface CreateAudioCollectionRequest {
+  name: string;
+  description?: string;
+  coverImagePath?: string;
+  defaultVoice?: string;
+  defaultLanguage?: string;
+  tone?: string;
+  author?: string;
+  authorEmail?: string;
+  itunesCategory?: string;
+  isExplicit?: boolean;
+  link?: string;
+}
+
+export type UpdateAudioCollectionRequest = Partial<CreateAudioCollectionRequest>;
+
+export interface MoveRecordingRequest {
+  collectionId?: string | null;
+  sequenceNumber?: number;
+  chapterTitle?: string;
+}
+
+export interface FeedSettingsV1 {
+  title: string;
+  description: string;
+  author?: string;
+  authorEmail?: string;
+  language: string;
+  coverImagePath?: string;
+  link?: string;
+  isExplicit: boolean;
+  itunesCategory?: string;
+  masterFeedUrl: string;
+}
+
+export type UpdateFeedSettingsRequest = Partial<Omit<FeedSettingsV1, 'masterFeedUrl'>>;
+
+export const recordings = {
+  list: (offset = 0, limit = 50, unfiledOnly = false) =>
+    json<ListResponse<TtsRecordingV1>>(`/api/v1/recordings?offset=${offset}&limit=${limit}&unfiledOnly=${unfiledOnly}`),
+  get: (id: string) => json<TtsRecordingV1>(`/api/v1/recordings/${id}`),
+  generate: (req: StartAudioGenerationRequest) =>
+    json<TtsRecordingV1>('/api/v1/recordings/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
+    }),
+  delete: (id: string) => json<void>(`/api/v1/recordings/${id}`, { method: 'DELETE' }),
+  move: (id: string, req: MoveRecordingRequest) =>
+    json<TtsRecordingV1>(`/api/v1/recordings/${id}/collection`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
+    }),
+};
+
+export const collections = {
+  list: (offset = 0, limit = 50) =>
+    json<ListResponse<AudioCollectionV1>>(`/api/v1/collections?offset=${offset}&limit=${limit}`),
+  get: (id: string) => json<AudioCollectionV1>(`/api/v1/collections/${id}`),
+  create: (req: CreateAudioCollectionRequest) =>
+    json<AudioCollectionV1>('/api/v1/collections', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
+    }),
+  update: (id: string, req: UpdateAudioCollectionRequest) =>
+    json<AudioCollectionV1>(`/api/v1/collections/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
+    }),
+  delete: (id: string) => json<void>(`/api/v1/collections/${id}`, { method: 'DELETE' }),
+  listRecordings: (id: string, offset = 0, limit = 100) =>
+    json<ListResponse<TtsRecordingV1>>(`/api/v1/collections/${id}/recordings?offset=${offset}&limit=${limit}`),
+};
+
+export const voices = {
+  list: () => json<TtsVoice[]>('/api/v1/voices'),
+};
+
+export const feedSettings = {
+  get: () => json<FeedSettingsV1>('/api/v1/feed-settings'),
+  update: (req: UpdateFeedSettingsRequest) =>
+    json<FeedSettingsV1>('/api/v1/feed-settings', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
+    }),
+};

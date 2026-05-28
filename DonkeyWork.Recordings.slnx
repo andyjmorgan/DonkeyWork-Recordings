@@ -1,0 +1,41 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DonkeyWork.Recordings.Api/DonkeyWork.Recordings.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/audio/">
+    <Project Path="src/audio/DonkeyWork.Recordings.Audio.Api/DonkeyWork.Recordings.Audio.Api.csproj" />
+    <Project Path="src/audio/DonkeyWork.Recordings.Audio.Contracts/DonkeyWork.Recordings.Audio.Contracts.csproj" />
+    <Project Path="src/audio/DonkeyWork.Recordings.Audio.Core/DonkeyWork.Recordings.Audio.Core.csproj" />
+  </Folder>
+  <Folder Name="/src/common/">
+    <Project Path="src/common/DonkeyWork.Recordings.Persistence/DonkeyWork.Recordings.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/src/identity/">
+    <Project Path="src/identity/DonkeyWork.Recordings.Identity.Api/DonkeyWork.Recordings.Identity.Api.csproj" />
+    <Project Path="src/identity/DonkeyWork.Recordings.Identity.Contracts/DonkeyWork.Recordings.Identity.Contracts.csproj" />
+    <Project Path="src/identity/DonkeyWork.Recordings.Identity.Core/DonkeyWork.Recordings.Identity.Core.csproj" />
+  </Folder>
+  <Folder Name="/src/mcp/">
+    <Project Path="src/mcp/DonkeyWork.Recordings.Mcp.Api/DonkeyWork.Recordings.Mcp.Api.csproj" />
+    <Project Path="src/mcp/DonkeyWork.Recordings.Mcp.Contracts/DonkeyWork.Recordings.Mcp.Contracts.csproj" />
+    <Project Path="src/mcp/DonkeyWork.Recordings.Mcp.Core/DonkeyWork.Recordings.Mcp.Core.csproj" />
+  </Folder>
+  <Folder Name="/src/storage/">
+    <Project Path="src/storage/DonkeyWork.Recordings.Storage.Api/DonkeyWork.Recordings.Storage.Api.csproj" />
+    <Project Path="src/storage/DonkeyWork.Recordings.Storage.Contracts/DonkeyWork.Recordings.Storage.Contracts.csproj" />
+    <Project Path="src/storage/DonkeyWork.Recordings.Storage.Core/DonkeyWork.Recordings.Storage.Core.csproj" />
+  </Folder>
+  <Folder Name="/test/" />
+  <Folder Name="/test/audio/">
+    <Project Path="test/audio/DonkeyWork.Recordings.Audio.Core.Tests/DonkeyWork.Recordings.Audio.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/test/e2e/">
+    <Project Path="test/e2e/DonkeyWork.Recordings.E2E.Tests/DonkeyWork.Recordings.E2E.Tests.csproj" />
+  </Folder>
+  <Folder Name="/test/integration/">
+    <Project Path="test/integration/DonkeyWork.Recordings.Integration.Tests/DonkeyWork.Recordings.Integration.Tests.csproj" />
+  </Folder>
+  <Folder Name="/test/smoke/">
+    <Project Path="test/smoke/DonkeyWork.Recordings.Smoke.Tests/DonkeyWork.Recordings.Smoke.Tests.csproj" />
+  </Folder>
+</Solution>

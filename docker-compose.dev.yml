@@ -1,0 +1,33 @@
+# Local dev infra for the Recordings API.
+#
+# Postgres only — Magpie, gpt-oss, and the attic SeaweedFS bucket are
+# reached over port-forwards / public DNS, not docker. Start with:
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#   kubectl --context=office port-forward -n magpie-tts svc/magpie-tts 9000:9000 &
+#   kubectl --context=office port-forward -n ollama-gpt-oss svc/ollama 11434:11434 &
+#   dotnet run --project src/DonkeyWork.Recordings.Api
+#
+# appsettings.Development.json points Magpie at localhost:9000, gpt-oss at
+# localhost:11434/v1, attic SeaweedFS at https://s3.donkeywork.dev (via
+# Cloudflare; admin creds for dev) and Postgres at localhost:5432.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: donkeywork_recordings
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d donkeywork_recordings"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

@@ -1,0 +1,9 @@
+{
+  "name": "donkeywork-recordings-frontend",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @donkeywork-recordings/web dev",
+    "build": "pnpm --filter @donkeywork-recordings/web build",
+    "preview": "pnpm --filter @donkeywork-recordings/web preview"
+  }
+}

@@ -1,0 +1,142 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# Rider
+.idea/
+*.sln.iml
+
+# User-specific files
+*.suo
+*.user
+*.userprefs
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+!src/frontend/packages/
+!src/frontend/packages/**
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+
+# Build results
+[Dd]ebugPublic/
+[Rr]eleases/
+[Aa]rtifacts/
+artifacts/
+publish/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+TestResults/
+
+# NCrunch
+*.ncrunch*
+_NCrunch_*
+.*crunch*.local.xml
+nCrunchTemp_*
+
+# Code coverage
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+
+# Dotnet tools
+.dotnet/
+.config/dotnet-tools.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ASP.NET
+ScaffoldingReadMe.txt
+
+# Entity Framework
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+*.pfx
+*.publishsettings
+
+# Secrets
+appsettings.*.local.json
+appsettings.Development.json
+secrets.json
+*.pem
+*.key
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Misc
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Rust / Cargo
+target/
+
+# Claude Code
+.claude/
+
+# Docker local dev
+docker/
+
+# Samples (kept locally, not in repo)
+samples/
+
+# Local data (docker volumes)
+/data/
+
+# Local docs
+docs/
+CLAUDE.local.md
+
+# Frontend
+node_modules/
+src/frontend/**/dist/
+src/frontend/**/.vite/
+src/frontend/**/.turbo/
+src/frontend/**/coverage/

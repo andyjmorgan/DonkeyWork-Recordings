@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DonkeyWork.Recordings.Audio.Contracts\DonkeyWork.Recordings.Audio.Contracts.csproj" />
+    <ProjectReference Include="..\..\common\DonkeyWork.Recordings.Persistence\DonkeyWork.Recordings.Persistence.csproj" />
+    <ProjectReference Include="..\..\identity\DonkeyWork.Recordings.Identity.Contracts\DonkeyWork.Recordings.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\storage\DonkeyWork.Recordings.Storage.Contracts\DonkeyWork.Recordings.Storage.Contracts.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

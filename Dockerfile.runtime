@@ -1,0 +1,14 @@
+# Runtime-only Dockerfile — consumes ./publish from the CI runner.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+EXPOSE 8080
+ENV DOTNET_ROLL_FORWARD=LatestMajor
+
+COPY publish/ .
+
+ENTRYPOINT ["dotnet", "DonkeyWork.Recordings.Api.dll"]

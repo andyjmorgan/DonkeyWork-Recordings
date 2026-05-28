@@ -1,0 +1,196 @@
+using System.ComponentModel;
+using DonkeyWork.Recordings.Audio.Contracts.Models;
+using DonkeyWork.Recordings.Audio.Contracts.Services;
+using DonkeyWork.Recordings.Mcp.Contracts;
+using ModelContextProtocol.Server;
+
+namespace DonkeyWork.Recordings.Audio.Api.McpTools;
+
+[McpServerToolType]
+[McpToolProvider(Provider = McpToolProvider.DonkeyWork)]
+public class AudioTools
+{
+    private readonly ITtsService _ttsService;
+    private readonly IAudioCollectionService _collectionService;
+    private readonly IAudioGenerationService _generationService;
+    private readonly ITtsProvider _ttsProvider;
+
+    public AudioTools(
+        ITtsService ttsService,
+        IAudioCollectionService collectionService,
+        IAudioGenerationService generationService,
+        ITtsProvider ttsProvider)
+    {
+        _ttsService = ttsService;
+        _collectionService = collectionService;
+        _generationService = generationService;
+        _ttsProvider = ttsProvider;
+    }
+
+    [McpServerTool(Name = "create_audio_recording", Title = "Create Audio Recording")]
+    [Description(
+        "Submit text to be synthesised into a podcast-style audio recording. Returns the recording immediately " +
+        "with Status=Pending — the id is the job id. The TTS pipeline (gpt-oss preprocessing + Magpie synthesis " +
+        "+ ffmpeg stitch + S3 upload) runs in the background. Poll get_audio_recording until Status is Ready or Failed.")]
+    public async Task<TtsRecordingV1?> CreateAudioRecording(
+        [Description("The text to synthesize. Markdown is fine; the preprocessor strips it.")] string text,
+        [Description("Display name for the recording (shown in the UI and used in the RSS title fallback).")] string name,
+        [Description("Optional channel (collection) id to file the recording under. Tone is inherited from the channel.")] Guid? collectionId = null,
+        [Description("Optional Magpie voice id, e.g. Magpie-Multilingual.EN-US.Aria. Defaults to the channel's DefaultVoice or the system default.")] string? voice = null,
+        [Description("Optional BCP-47 language code, e.g. en-US. Defaults to the channel's DefaultLanguage or en-US.")] string? language = null,
+        [Description("Optional 1-based position within the channel. Auto-assigned (max + 1) if omitted.")] int? sequenceNumber = null,
+        [Description("Optional chapter-style title within the channel (falls back to Name in the UI).")] string? chapterTitle = null,
+        [Description("Optional description / show-notes.")] string? description = null,
+        CancellationToken cancellationToken = default)
+    {
+        var recordingId = await _generationService.StartGenerationAsync(new StartAudioGenerationRequestV1
+        {
+            Text = text,
+            Name = name,
+            Description = description,
+            Voice = voice,
+            Language = language,
+            CollectionId = collectionId,
+            SequenceNumber = sequenceNumber,
+            ChapterTitle = chapterTitle,
+        }, cancellationToken);
+
+        return await _ttsService.GetRecordingAsync(recordingId, cancellationToken);
+    }
+
+    [McpServerTool(Name = "list_voices", Title = "List Magpie Voices", ReadOnly = true)]
+    [Description("List every Magpie TTS voice available on the spark, including emotion variants.")]
+    public async Task<IReadOnlyList<TtsVoice>> ListVoices(CancellationToken cancellationToken = default)
+    {
+        return await _ttsProvider.ListVoicesAsync(cancellationToken);
+    }
+
+    [McpServerTool(Name = "get_audio_recording", Title = "Get Audio Recording", ReadOnly = true)]
+    [Description(
+        "Get a single audio recording by ID. Returns full metadata: Status (Pending/Generating/Ready/Failed), " +
+        "Progress (0-1), FilePath (public mp3 URL when Ready), DurationSeconds, transcript, etc.")]
+    public Task<TtsRecordingV1?> GetAudioRecording(
+        [Description("The recording id.")] Guid recordingId,
+        CancellationToken cancellationToken = default)
+    {
+        return _ttsService.GetRecordingAsync(recordingId, cancellationToken);
+    }
+
+    [McpServerTool(Name = "list_audio_recordings", Title = "List Audio Recordings", ReadOnly = true)]
+    [Description(
+        "List audio recordings. Pass collectionId to scope to one channel (ordered by sequence). " +
+        "Pass unfiledOnly=true for recordings not assigned to any channel. " +
+        "Omit both for a flat list of every recording, newest first.")]
+    public async Task<ListRecordingsResponseV1?> ListAudioRecordings(
+        [Description("Optional channel id to scope to one channel.")] Guid? collectionId = null,
+        [Description("If true, only return recordings not assigned to any channel. Ignored when collectionId is set.")] bool unfiledOnly = false,
+        [Description("Pagination offset (default 0).")] int? offset = null,
+        [Description("Page size (default 20, max 100).")] int? limit = null,
+        CancellationToken cancellationToken = default)
+    {
+        var pageOffset = offset ?? 0;
+        var pageLimit = Math.Min(limit ?? 20, 100);
+
+        if (collectionId.HasValue)
+        {
+            return await _collectionService.ListRecordingsAsync(collectionId.Value, pageOffset, pageLimit, cancellationToken);
+        }
+
+        return await _ttsService.ListRecordingsAsync(pageOffset, pageLimit, unfiledOnly, cancellationToken);
+    }
+
+    [McpServerTool(Name = "delete_audio_recording", Title = "Delete Audio Recording")]
+    [Description("Permanently delete an audio recording and its underlying mp3 in object storage.")]
+    public Task<bool> DeleteAudioRecording(
+        [Description("The recording id.")] Guid recordingId,
+        CancellationToken cancellationToken = default)
+    {
+        return _ttsService.DeleteRecordingAsync(recordingId, cancellationToken);
+    }
+
+    [McpServerTool(Name = "move_audio_recording", Title = "Move Audio Recording")]
+    [Description("Move a recording to a different channel, or unfile it. Pass collectionId=null to unfile.")]
+    public Task<TtsRecordingV1?> MoveAudioRecording(
+        [Description("The recording id.")] Guid recordingId,
+        [Description("Target channel id, or null to unfile.")] Guid? collectionId = null,
+        [Description("Optional 1-based sequence number within the target channel. Auto-assigned if omitted.")] int? sequenceNumber = null,
+        [Description("Optional chapter title within the target channel.")] string? chapterTitle = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _ttsService.MoveRecordingAsync(recordingId, new MoveRecordingToCollectionRequestV1
+        {
+            CollectionId = collectionId,
+            SequenceNumber = sequenceNumber,
+            ChapterTitle = chapterTitle,
+        }, cancellationToken);
+    }
+
+    [McpServerTool(Name = "list_audio_collections", Title = "List Audio Collections", ReadOnly = true)]
+    [Description("List audio collections (channels) for the current user.")]
+    public Task<ListAudioCollectionsResponseV1> ListAudioCollections(
+        [Description("Pagination offset (default 0).")] int? offset = null,
+        [Description("Page size (default 20, max 100).")] int? limit = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _collectionService.ListAsync(offset ?? 0, Math.Min(limit ?? 20, 100), cancellationToken);
+    }
+
+    [McpServerTool(Name = "get_audio_collection", Title = "Get Audio Collection", ReadOnly = true)]
+    [Description("Get a single audio collection (channel) by id.")]
+    public Task<AudioCollectionV1?> GetAudioCollection(
+        [Description("Channel id.")] Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return _collectionService.GetAsync(id, cancellationToken);
+    }
+
+    [McpServerTool(Name = "create_audio_collection", Title = "Create Audio Collection")]
+    [Description("Create a new audio collection (channel) scoped to the current user.")]
+    public Task<AudioCollectionV1> CreateAudioCollection(
+        [Description("Display name for the channel.")] string name,
+        [Description("Optional description.")] string? description = null,
+        [Description("Optional default Magpie voice for new recordings in this channel.")] string? defaultVoice = null,
+        [Description("Optional default BCP-47 language code for new recordings in this channel.")] string? defaultLanguage = null,
+        [Description("Optional free-text tone instruction passed to gpt-oss for every recording in this channel (e.g. 'serious news anchor', 'upbeat morning host').")] string? tone = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _collectionService.CreateAsync(new CreateAudioCollectionRequestV1
+        {
+            Name = name,
+            Description = description,
+            DefaultVoice = defaultVoice,
+            DefaultLanguage = defaultLanguage,
+            Tone = tone,
+        }, cancellationToken);
+    }
+
+    [McpServerTool(Name = "update_audio_collection", Title = "Update Audio Collection")]
+    [Description("Patch-update an existing channel. Omit fields to leave them unchanged.")]
+    public Task<AudioCollectionV1?> UpdateAudioCollection(
+        [Description("Channel id.")] Guid id,
+        [Description("New name.")] string? name = null,
+        [Description("New description.")] string? description = null,
+        [Description("New default Magpie voice.")] string? defaultVoice = null,
+        [Description("New default BCP-47 language code.")] string? defaultLanguage = null,
+        [Description("New tone instruction for gpt-oss preprocessing.")] string? tone = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _collectionService.UpdateAsync(id, new UpdateAudioCollectionRequestV1
+        {
+            Name = name,
+            Description = description,
+            DefaultVoice = defaultVoice,
+            DefaultLanguage = defaultLanguage,
+            Tone = tone,
+        }, cancellationToken);
+    }
+
+    [McpServerTool(Name = "delete_audio_collection", Title = "Delete Audio Collection")]
+    [Description("Delete a channel. Recordings in the channel become unfiled (not cascade-deleted).")]
+    public Task<bool> DeleteAudioCollection(
+        [Description("Channel id.")] Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return _collectionService.DeleteAsync(id, cancellationToken);
+    }
+}

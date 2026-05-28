@@ -3,6 +3,7 @@ using DonkeyWork.Recordings.Identity.Api;
 using DonkeyWork.Recordings.Mcp.Api;
 using DonkeyWork.Recordings.Persistence;
 using DonkeyWork.Recordings.Storage.Api;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,25 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapControllers();
 app.UseMcpApi();
 
+await MigrateDatabaseAsync(app);
+
 app.Run();
+
+static async Task MigrateDatabaseAsync(WebApplication app)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<RecordingsDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        await db.Database.MigrateAsync();
+        logger.LogInformation("Database migrations applied");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Database migration failed at startup");
+    }
+}
 
 public partial class Program;

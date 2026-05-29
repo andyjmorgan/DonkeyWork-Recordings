@@ -20,10 +20,11 @@ public sealed class GptOssPreprocessor : IGptOssPreprocessor
         Rules:
         - Output ONLY valid JSON: {"paragraphs": [string, string, ...]}.
         - One paragraph per natural breath-pause unit (typically 1-4 sentences).
-        - Use inline tokens, sparingly, for emphasis:
-            [PAUSE=Nms]                              — insert a silence of N milliseconds.
-            [EMPHASIS=strong|moderate|reduced]...[/EMPHASIS]  — emphasise the wrapped phrase.
-        - Do NOT emit any SSML or HTML tags. Do NOT include the raw markdown of the input.
+        - Convey pacing and emphasis using ordinary punctuation only — commas, periods, question
+          marks, dashes, and ellipses. The voice renders pauses from punctuation and paragraph breaks.
+        - Output plain spoken words ONLY. Do NOT emit SSML, HTML, markdown, or any bracketed control
+          tokens such as [PAUSE=500] or [EMPHASIS=...]; the voice cannot interpret them and would read
+          them aloud verbatim.
         - Strip URLs, headers, code blocks, table syntax, and anything else that would not sound natural read aloud.
         - Preserve the meaning and order of the source material.
         """;

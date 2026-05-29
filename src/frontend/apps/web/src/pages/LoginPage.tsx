@@ -1,4 +1,4 @@
-import { Mic2, Github } from 'lucide-react';
+import { Github } from 'lucide-react';
 
 function MicrosoftIcon({ className }: { className?: string }) {
   return (
@@ -43,9 +43,7 @@ export function LoginPage() {
       <main className="flex flex-1 flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm space-y-8 text-center">
           <div className="flex flex-col items-center space-y-4">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary">
-              <Mic2 className="h-8 w-8" />
-            </div>
+            <img src="/donkeywork.png" alt="DonkeyWork" className="h-16 w-16" />
             <div className="space-y-2">
               <h1 className="text-3xl font-bold tracking-tight">DonkeyWork Recordings</h1>
               <p className="text-muted-foreground">Sign in to manage your podcast.</p>

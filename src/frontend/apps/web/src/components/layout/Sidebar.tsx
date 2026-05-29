@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Mic2, Radio, Rss, UserCircle, X } from 'lucide-react';
+import { Radio, Rss, UserCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -34,9 +34,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       >
         <div className="flex h-14 items-center justify-between gap-3 px-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
-            <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Mic2 className="h-5 w-5" />
-            </div>
+            <img src="/donkeywork.png" alt="DonkeyWork" className="h-9 w-9 shrink-0" />
             <div>
               <div className="text-sm font-semibold leading-tight">DonkeyWork</div>
               <div className="text-xs text-muted-foreground">Recordings</div>

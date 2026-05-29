@@ -66,8 +66,14 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
     return [...set].sort();
   }, [voiceList, defaultLanguage]);
 
+  // Magpie reports each base voice plus one entry per emotion preset
+  // (Mia, Mia.Neutral, Mia.Calm, Mia.Angry, …). Hide the emotion variants
+  // from the dropdown — they balloon the list and aren't useful as the
+  // channel default.
   const filteredVoices = useMemo(
-    () => (voiceList ?? []).filter((v) => !defaultLanguage || v.language === defaultLanguage),
+    () => (voiceList ?? []).filter(
+      (v) => !v.emotion && (!defaultLanguage || v.language === defaultLanguage),
+    ),
     [voiceList, defaultLanguage],
   );
 
@@ -194,9 +200,7 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
                   <SelectContent>
                     <SelectItem value={INHERIT_VALUE}>Inherit system default</SelectItem>
                     {filteredVoices.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.name}{v.emotion ? ` · ${v.emotion}` : ''}
-                      </SelectItem>
+                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

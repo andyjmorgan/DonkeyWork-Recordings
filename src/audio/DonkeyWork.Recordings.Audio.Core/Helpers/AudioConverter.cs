@@ -52,48 +52,56 @@ public static class AudioConverter
 
     public static double ProbeDurationSeconds(byte[] mediaBytes)
     {
-        var psi = new ProcessStartInfo
+        // ffprobe reads only as much of -i pipe:0 as it needs and then stops draining stdin,
+        // so piping a large payload deadlocks once the OS pipe buffer fills. Probe a seekable
+        // temp file instead.
+        var tempPath = Path.Combine(Path.GetTempPath(), $"tts-probe-{Guid.NewGuid():N}");
+        File.WriteAllBytes(tempPath, mediaBytes);
+
+        try
         {
-            FileName = "ffprobe",
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
+            var psi = new ProcessStartInfo
+            {
+                FileName = "ffprobe",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
 
-        psi.ArgumentList.Add("-hide_banner");
-        psi.ArgumentList.Add("-loglevel");
-        psi.ArgumentList.Add("error");
-        psi.ArgumentList.Add("-i");
-        psi.ArgumentList.Add("pipe:0");
-        psi.ArgumentList.Add("-show_entries");
-        psi.ArgumentList.Add("format=duration");
-        psi.ArgumentList.Add("-of");
-        psi.ArgumentList.Add("csv=p=0");
+            psi.ArgumentList.Add("-hide_banner");
+            psi.ArgumentList.Add("-loglevel");
+            psi.ArgumentList.Add("error");
+            psi.ArgumentList.Add("-i");
+            psi.ArgumentList.Add(tempPath);
+            psi.ArgumentList.Add("-show_entries");
+            psi.ArgumentList.Add("format=duration");
+            psi.ArgumentList.Add("-of");
+            psi.ArgumentList.Add("csv=p=0");
 
-        using var process = Process.Start(psi)
-            ?? throw new InvalidOperationException("Failed to start ffprobe process.");
+            using var process = Process.Start(psi)
+                ?? throw new InvalidOperationException("Failed to start ffprobe process.");
 
-        var stdoutTask = process.StandardOutput.ReadToEndAsync();
-        var stderrTask = process.StandardError.ReadToEndAsync();
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
 
-        process.StandardInput.BaseStream.Write(mediaBytes, 0, mediaBytes.Length);
-        process.StandardInput.BaseStream.Flush();
-        process.StandardInput.Close();
+            var output = stdoutTask.GetAwaiter().GetResult();
+            process.WaitForExit();
 
-        var output = stdoutTask.GetAwaiter().GetResult();
-        process.WaitForExit();
+            if (process.ExitCode != 0)
+            {
+                var error = stderrTask.GetAwaiter().GetResult();
+                throw new InvalidOperationException($"ffprobe failed with exit code {process.ExitCode}: {error}");
+            }
 
-        if (process.ExitCode != 0)
-        {
-            var error = stderrTask.GetAwaiter().GetResult();
-            throw new InvalidOperationException($"ffprobe failed with exit code {process.ExitCode}: {error}");
+            return double.TryParse(output.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds)
+                ? seconds
+                : 0.0;
         }
-
-        return double.TryParse(output.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds)
-            ? seconds
-            : 0.0;
+        finally
+        {
+            try { File.Delete(tempPath); } catch { }
+        }
     }
 
     private static byte[] RunFfmpeg(IReadOnlyList<string> args, byte[]? stdin)

@@ -58,8 +58,8 @@ public class AudioTools
         return await _ttsService.GetRecordingAsync(recordingId, cancellationToken);
     }
 
-    [McpServerTool(Name = "list_voices", Title = "List Magpie Voices", ReadOnly = true)]
-    [Description("List every Magpie TTS voice available on the spark, including emotion variants.")]
+    [McpServerTool(Name = "list_voices", Title = "List Voices", ReadOnly = true)]
+    [Description("List the TTS voices available for audio generation.")]
     public async Task<IReadOnlyList<TtsVoice>> ListVoices(CancellationToken cancellationToken = default)
     {
         return await _ttsProvider.ListVoicesAsync(cancellationToken);

@@ -24,7 +24,7 @@ public static class GenerateAudioRecordingHandler
         ITtsChunker chunker,
         ITtsProvider ttsProvider,
         IStorageService storage,
-        IOptions<MagpieOptions> magpieOptions,
+        IOptions<ChatterboxOptions> ttsOptions,
         ILogger<GenerateAudioRecordingCommand> logger,
         CancellationToken cancellationToken)
     {
@@ -81,27 +81,20 @@ public static class GenerateAudioRecordingHandler
                 "Generating audio for recording {RecordingId}: {ParagraphCount} paragraphs → {ChunkCount} chunks",
                 recording.Id, paragraphs.Count, chunks.Count);
 
-            var magpie = magpieOptions.Value;
-            var sampleRate = magpie.SampleRateHz;
-            var parallelism = Math.Max(1, Math.Min(command.MaxParallelism, chunks.Count));
+            var sampleRate = ttsOptions.Value.SampleRateHz;
             var wavBytes = new byte[chunks.Count][];
 
-            await Parallel.ForEachAsync(
-                chunks.Select((text, index) => (text, index)),
-                new ParallelOptions
-                {
-                    MaxDegreeOfParallelism = parallelism,
-                    CancellationToken = cancellationToken,
-                },
-                async (pair, ct) =>
-                {
-                    var wrapped = ssml.Wrap(pair.text);
-                    var clip = await ttsProvider.SynthesizeAsync(
-                        wrapped,
-                        new TtsProviderRequest(command.Voice, command.Language, sampleRate),
-                        ct);
-                    wavBytes[pair.index] = clip.Audio;
-                });
+            // Chatterbox serialises on a single GPU instance — concurrent requests just queue —
+            // so synthesise the chunks one at a time in order.
+            for (var index = 0; index < chunks.Count; index++)
+            {
+                var wrapped = ssml.Wrap(chunks[index]);
+                var clip = await ttsProvider.SynthesizeAsync(
+                    wrapped,
+                    new TtsProviderRequest(command.Voice, command.Language, sampleRate),
+                    cancellationToken);
+                wavBytes[index] = clip.Audio;
+            }
 
             var stitchedWav = AudioConverter.ConcatWav(wavBytes);
             var mp3Bytes = AudioConverter.WavToMp3(stitchedWav);

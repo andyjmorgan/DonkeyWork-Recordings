@@ -14,7 +14,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddAudioApi(this IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<MagpieOptions>(configuration.GetSection(MagpieOptions.SectionName));
+        services.Configure<ChatterboxOptions>(configuration.GetSection(ChatterboxOptions.SectionName));
         services.Configure<GptOssOptions>(configuration.GetSection(GptOssOptions.SectionName));
         services.Configure<RecordingsOptions>(configuration.GetSection(RecordingsOptions.SectionName));
 
@@ -34,9 +34,9 @@ public static class DependencyInjection
 
         services.AddMemoryCache();
 
-        services.AddHttpClient<ITtsProvider, MagpieTtsProvider>((sp, client) =>
+        services.AddHttpClient<ITtsProvider, ChatterboxTtsProvider>((sp, client) =>
         {
-            var opts = sp.GetRequiredService<IOptions<MagpieOptions>>().Value;
+            var opts = sp.GetRequiredService<IOptions<ChatterboxOptions>>().Value;
             client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
             client.Timeout = opts.RequestTimeout;
         });

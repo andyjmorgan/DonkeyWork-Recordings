@@ -142,6 +142,15 @@ export const collections = {
 
 export const voices = {
   list: () => json<TtsVoice[]>('/api/v1/voices'),
+  preview: async (req: { voice: string; language: string; tone?: string }): Promise<Blob> => {
+    const res = await fetchWithAuth('/api/v1/voices/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) throw new ApiError(res.status, (await res.text()) || res.statusText);
+    return res.blob();
+  },
 };
 
 export const feedSettings = {

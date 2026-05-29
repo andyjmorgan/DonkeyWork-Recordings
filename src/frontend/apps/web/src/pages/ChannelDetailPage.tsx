@@ -76,7 +76,7 @@ export function ChannelDetailPage() {
   if (!collection) return <div className="p-8 text-muted-foreground">Channel not found.</div>;
 
   return (
-    <div className="p-8 max-w-4xl space-y-6">
+    <div className="p-8 mx-auto max-w-4xl space-y-6">
       <Link to="/channels" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4 mr-1" />All channels
       </Link>

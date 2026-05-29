@@ -1,10 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, Volume2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { collections, type AudioCollectionV1 } from '@/lib/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { collections, voices, type AudioCollectionV1, type TtsVoice } from '@/lib/api';
 import { toast } from 'sonner';
 
 interface Props {
@@ -14,6 +22,8 @@ interface Props {
   onSaved: (collection: AudioCollectionV1) => void;
 }
 
+const INHERIT_VALUE = '__inherit__';
+
 export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -21,6 +31,12 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
   const [defaultVoice, setDefaultVoice] = useState('');
   const [defaultLanguage, setDefaultLanguage] = useState('en-US');
   const [submitting, setSubmitting] = useState(false);
+
+  const [voiceList, setVoiceList] = useState<TtsVoice[] | null>(null);
+  const [voicesError, setVoicesError] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -31,6 +47,62 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
       setDefaultLanguage(editing?.defaultLanguage ?? 'en-US');
     }
   }, [open, editing]);
+
+  useEffect(() => {
+    if (!open || voiceList || voicesError) return;
+    voices.list()
+      .then((list) => setVoiceList(list))
+      .catch(() => setVoicesError(true));
+  }, [open, voiceList, voicesError]);
+
+  useEffect(() => () => {
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+  }, []);
+
+  const languages = useMemo(() => {
+    const set = new Set<string>();
+    (voiceList ?? []).forEach((v) => set.add(v.language));
+    if (defaultLanguage) set.add(defaultLanguage);
+    return [...set].sort();
+  }, [voiceList, defaultLanguage]);
+
+  const filteredVoices = useMemo(
+    () => (voiceList ?? []).filter((v) => !defaultLanguage || v.language === defaultLanguage),
+    [voiceList, defaultLanguage],
+  );
+
+  const handleLanguageChange = (value: string) => {
+    setDefaultLanguage(value);
+    if (defaultVoice && voiceList && !voiceList.some((v) => v.id === defaultVoice && v.language === value)) {
+      setDefaultVoice('');
+    }
+  };
+
+  const handleTest = async () => {
+    if (!defaultVoice) {
+      toast.error('Pick a voice to preview.');
+      return;
+    }
+    setTesting(true);
+    try {
+      const blob = await voices.preview({
+        voice: defaultVoice,
+        language: defaultLanguage || 'en-US',
+        tone: tone.trim() || undefined,
+      });
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+      const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
+      const audio = audioRef.current ?? new Audio();
+      audioRef.current = audio;
+      audio.src = url;
+      await audio.play();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Preview failed');
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,13 +167,53 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="defaultVoice">Default voice</Label>
-                <Input id="defaultVoice" value={defaultVoice} onChange={(e) => setDefaultVoice(e.target.value)} placeholder="Magpie-Multilingual.EN-US.Aria" />
+                <Label htmlFor="defaultLanguage">Default language</Label>
+                <Select value={defaultLanguage || 'en-US'} onValueChange={handleLanguageChange} disabled={!voiceList && !voicesError}>
+                  <SelectTrigger id="defaultLanguage">
+                    <SelectValue placeholder={voiceList ? 'Pick a language' : 'Loading…'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {languages.map((lang) => (
+                      <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="defaultLanguage">Default language</Label>
-                <Input id="defaultLanguage" value={defaultLanguage} onChange={(e) => setDefaultLanguage(e.target.value)} placeholder="en-US" />
+                <Label htmlFor="defaultVoice">Default voice</Label>
+                <Select
+                  value={defaultVoice || INHERIT_VALUE}
+                  onValueChange={(v) => setDefaultVoice(v === INHERIT_VALUE ? '' : v)}
+                  disabled={!voiceList && !voicesError}
+                >
+                  <SelectTrigger id="defaultVoice">
+                    <SelectValue placeholder={voiceList ? 'Inherit system default' : 'Loading…'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={INHERIT_VALUE}>Inherit system default</SelectItem>
+                    {filteredVoices.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.name}{v.emotion ? ` · ${v.emotion}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleTest}
+                disabled={testing || !defaultVoice}
+              >
+                {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Volume2 className="h-4 w-4 mr-2" />}
+                {testing ? 'Synthesising…' : 'Test voice + tone'}
+              </Button>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Synthesises "testing, one, two, three" with the current voice and pipes it through gpt-oss using the tone above.
+              </p>
             </div>
           </div>
 

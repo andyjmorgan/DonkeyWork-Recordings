@@ -3,9 +3,20 @@ using DonkeyWork.Recordings.Identity.Api;
 using DonkeyWork.Recordings.Mcp.Api;
 using DonkeyWork.Recordings.Persistence;
 using DonkeyWork.Recordings.Storage.Api;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Trust the reverse-proxy chain (nginx in the web pod → API). Without this
+// Request.Scheme reports "http" inside the cluster and AuthController builds
+// redirect_uri=http://... which Keycloak rejects against its https:// whitelist.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddControllers();
 builder.Services.AddPersistence(builder.Configuration);
@@ -16,6 +27,7 @@ builder.Services.AddMcpApi(typeof(DonkeyWork.Recordings.Audio.Api.McpTools.Audio
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseAuthentication();
 app.UseAuthorization();
 

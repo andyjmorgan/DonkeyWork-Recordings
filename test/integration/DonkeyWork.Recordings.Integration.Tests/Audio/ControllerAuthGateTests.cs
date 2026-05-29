@@ -33,10 +33,10 @@ public class ControllerAuthGateTests : IClassFixture<RecordingsTestFixture>
     }
 
     [Fact]
-    public async Task Mcp_Endpoint_At_Root_Requires_Auth()
+    public async Task Mcp_Endpoint_Requires_Auth()
     {
         using var client = _fixture.Factory.CreateClient();
-        using var response = await client.PostAsync("/", new StringContent(
+        using var response = await client.PostAsync("/mcp", new StringContent(
             """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""",
             System.Text.Encoding.UTF8,
             "application/json"));

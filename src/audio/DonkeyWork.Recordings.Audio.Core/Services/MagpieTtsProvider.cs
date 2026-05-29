@@ -42,31 +42,42 @@ public sealed class MagpieTtsProvider : ITtsProvider
         using var response = await _httpClient.GetAsync("v1/audio/list_voices", cancellationToken);
         response.EnsureSuccessStatusCode();
 
+        // Magpie shape: { "<csv-of-locales>": { "voices": [ "Magpie-Multilingual.EN-US.Mia", ... ] } }
+        // The top-level key (the csv) doesn't map to individual voices — each voice
+        // carries its own locale in its name (parts[1]), so we ignore the key.
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var map = await JsonSerializer.DeserializeAsync<Dictionary<string, List<string>>>(stream, cancellationToken: cancellationToken)
-            ?? new Dictionary<string, List<string>>();
+        var map = await JsonSerializer.DeserializeAsync<Dictionary<string, VoicesPayload>>(stream, cancellationToken: cancellationToken)
+            ?? new Dictionary<string, VoicesPayload>();
 
-        var voices = new List<TtsVoice>();
-        foreach (var (language, names) in map)
-        {
-            foreach (var name in names)
-            {
-                voices.Add(ParseVoice(language, name));
-            }
-        }
-
-        return voices;
+        return map.Values
+            .SelectMany(p => p.Voices ?? Enumerable.Empty<string>())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(ParseVoice)
+            .ToList();
     }
 
-    private static TtsVoice ParseVoice(string language, string fullName)
+    private static TtsVoice ParseVoice(string fullName)
     {
         var parts = fullName.Split('.', StringSplitOptions.RemoveEmptyEntries);
-
-        return parts.Length switch
-        {
-            >= 4 => new TtsVoice(fullName, language, parts[2], parts[3]),
-            3 => new TtsVoice(fullName, language, parts[2], null),
-            _ => new TtsVoice(fullName, language, fullName, null),
-        };
+        var language = parts.Length >= 2 ? NormalizeLanguage(parts[1]) : "en-US";
+        var name = parts.Length >= 3 ? parts[2] : fullName;
+        var emotion = parts.Length >= 4 ? parts[3] : null;
+        return new TtsVoice(fullName, language, name, emotion);
     }
+
+    // Magpie reports locales as "EN-US" inside voice names but the synthesize
+    // endpoint expects "en-US". Normalize to the lang-REGION convention.
+    private static string NormalizeLanguage(string raw)
+    {
+        var hyphen = raw.IndexOf('-');
+        if (hyphen <= 0)
+        {
+            return raw.ToLowerInvariant();
+        }
+
+        return $"{raw[..hyphen].ToLowerInvariant()}-{raw[(hyphen + 1)..].ToUpperInvariant()}";
+    }
+
+    private sealed record VoicesPayload(
+        [property: JsonPropertyName("voices")] List<string>? Voices);
 }

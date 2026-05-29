@@ -109,6 +109,28 @@ export function AudioPlayer({ recording, className }: { recording: TtsRecordingV
         disabled={!isReady}
         className="w-full accent-primary"
       />
+
+      {(recording.transcript || recording.processedTranscript) && (
+        <details className="border-t border-border pt-2">
+          <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">
+            Transcript
+          </summary>
+          <div className="mt-2 space-y-3">
+            {recording.transcript && (
+              <div>
+                <div className="mb-1 text-xs font-medium text-muted-foreground">Input text</div>
+                <p className="whitespace-pre-wrap break-words text-sm">{recording.transcript}</p>
+              </div>
+            )}
+            {recording.processedTranscript && (
+              <div>
+                <div className="mb-1 text-xs font-medium text-muted-foreground">Spoken text (processed)</div>
+                <p className="whitespace-pre-wrap break-words text-sm">{recording.processedTranscript}</p>
+              </div>
+            )}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

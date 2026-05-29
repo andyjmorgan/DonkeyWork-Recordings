@@ -1,9 +1,11 @@
-using System.Net.Http.Json;
+using System.ClientModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DonkeyWork.Recordings.Audio.Contracts.Services;
 using DonkeyWork.Recordings.Audio.Core.Options;
 using Microsoft.Extensions.Options;
+using OpenAI;
+using OpenAI.Chat;
 
 namespace DonkeyWork.Recordings.Audio.Core.Services;
 
@@ -26,13 +28,24 @@ public sealed class GptOssPreprocessor : IGptOssPreprocessor
         - Preserve the meaning and order of the source material.
         """;
 
-    private readonly HttpClient _httpClient;
+    private readonly ChatClient _chatClient;
     private readonly GptOssOptions _options;
 
-    public GptOssPreprocessor(HttpClient httpClient, IOptions<GptOssOptions> options)
+    public GptOssPreprocessor(IOptions<GptOssOptions> options)
     {
-        _httpClient = httpClient;
         _options = options.Value;
+
+        var clientOptions = new OpenAIClientOptions
+        {
+            Endpoint = new Uri(_options.BaseUrl),
+            NetworkTimeout = _options.RequestTimeout,
+        };
+
+        // Ollama (the default backend) ignores auth; sluice requires a Bearer key. ApiKeyCredential
+        // rejects an empty string, so fall back to a placeholder when no key is configured.
+        var apiKey = string.IsNullOrWhiteSpace(_options.ApiKey) ? "no-key" : _options.ApiKey;
+
+        _chatClient = new ChatClient(_options.Model, new ApiKeyCredential(apiKey), clientOptions);
     }
 
     public async Task<IReadOnlyList<string>> PreprocessAsync(GptOssPreprocessRequest request, CancellationToken cancellationToken = default)
@@ -42,78 +55,28 @@ public sealed class GptOssPreprocessor : IGptOssPreprocessor
             .Replace("{LANGUAGE}", request.Language)
             .Replace("{TONE}", tone);
 
-        var chatRequest = new ChatRequest
+        var messages = new List<ChatMessage>
         {
-            Model = _options.Model,
-            Temperature = _options.Temperature,
-            MaxTokens = _options.MaxTokens,
-            ResponseFormat = new ResponseFormat("json_object"),
-            Messages =
-            [
-                new ChatMessage("system", systemPrompt),
-                new ChatMessage("user", request.RawText),
-            ],
+            new SystemChatMessage(systemPrompt),
+            new UserChatMessage(request.RawText),
         };
 
-        using var response = await _httpClient.PostAsJsonAsync("chat/completions", chatRequest, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var completionOptions = new ChatCompletionOptions
+        {
+            Temperature = (float)_options.Temperature,
+            MaxOutputTokenCount = _options.MaxTokens,
+            ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
+        };
 
-        var chatResponse = await response.Content.ReadFromJsonAsync<ChatResponse>(cancellationToken: cancellationToken)
-            ?? throw new InvalidOperationException("gpt-oss returned an empty body.");
+        var completion = await _chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
 
-        var content = chatResponse.Choices.FirstOrDefault()?.Message?.Content
+        var content = completion.Value.Content.FirstOrDefault(part => part.Kind == ChatMessageContentPartKind.Text)?.Text
             ?? throw new InvalidOperationException("gpt-oss response had no message content.");
 
         var parsed = JsonSerializer.Deserialize<PreprocessPayload>(content)
             ?? throw new InvalidOperationException("gpt-oss response did not parse as JSON.");
 
         return parsed.Paragraphs ?? Array.Empty<string>();
-    }
-
-    private sealed record ChatRequest
-    {
-        [JsonPropertyName("model")]
-        public required string Model { get; init; }
-
-        [JsonPropertyName("messages")]
-        public required IReadOnlyList<ChatMessage> Messages { get; init; }
-
-        [JsonPropertyName("temperature")]
-        public double Temperature { get; init; }
-
-        [JsonPropertyName("max_tokens")]
-        public int MaxTokens { get; init; }
-
-        [JsonPropertyName("response_format")]
-        public ResponseFormat? ResponseFormat { get; init; }
-    }
-
-    private sealed record ChatMessage(
-        [property: JsonPropertyName("role")] string Role,
-        [property: JsonPropertyName("content")] string Content);
-
-    private sealed record ResponseFormat(
-        [property: JsonPropertyName("type")] string Type);
-
-    private sealed record ChatResponse
-    {
-        [JsonPropertyName("choices")]
-        public IReadOnlyList<Choice> Choices { get; init; } = Array.Empty<Choice>();
-    }
-
-    private sealed record Choice
-    {
-        [JsonPropertyName("message")]
-        public ChatResponseMessage? Message { get; init; }
-    }
-
-    private sealed record ChatResponseMessage
-    {
-        [JsonPropertyName("content")]
-        public string? Content { get; init; }
-
-        [JsonPropertyName("reasoning")]
-        public string? Reasoning { get; init; }
     }
 
     private sealed record PreprocessPayload

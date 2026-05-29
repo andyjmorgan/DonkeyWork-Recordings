@@ -129,6 +129,7 @@ public static class GenerateAudioRecordingHandler
             recording.ContentType = "audio/mpeg";
             recording.SizeBytes = mp3Bytes.LongLength;
             recording.DurationSeconds = duration;
+            recording.ProcessedTranscript = string.Join("\n\n", paragraphs);
             recording.Status = TtsRecordingStatus.Ready;
             recording.Progress = 1.0;
             recording.ErrorMessage = null;

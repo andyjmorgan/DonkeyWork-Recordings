@@ -12,6 +12,7 @@ internal static class AudioMappings
         Description = entity.Description,
         FilePath = entity.FilePath,
         Transcript = entity.Transcript,
+        ProcessedTranscript = entity.ProcessedTranscript,
         ContentType = entity.ContentType,
         SizeBytes = entity.SizeBytes,
         DurationSeconds = entity.DurationSeconds,

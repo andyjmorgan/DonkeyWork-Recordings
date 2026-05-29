@@ -38,6 +38,11 @@ public class TtsRecordingConfiguration : IEntityTypeConfiguration<TtsRecordingEn
             .HasColumnName("transcript")
             .IsRequired();
 
+        builder.Property(e => e.ProcessedTranscript)
+            .HasColumnName("processed_transcript")
+            .IsRequired()
+            .HasDefaultValue(string.Empty);
+
         builder.Property(e => e.ContentType)
             .HasColumnName("content_type")
             .IsRequired()

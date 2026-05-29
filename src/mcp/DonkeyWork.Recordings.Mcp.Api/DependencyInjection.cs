@@ -55,7 +55,7 @@ public static class DependencyInjection
 
     public static WebApplication UseMcpApi(this WebApplication app)
     {
-        app.MapMcp().RequireAuthorization(new AuthorizeAttribute
+        app.MapMcp("/mcp").RequireAuthorization(new AuthorizeAttribute
         {
             AuthenticationSchemes = McpAuthenticationDefaults.AuthenticationScheme,
         });

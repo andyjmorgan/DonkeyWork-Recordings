@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using DonkeyWork.Recordings.Identity.Api.Authentication;
 using DonkeyWork.Recordings.Identity.Api.Options;
 using DonkeyWork.Recordings.Identity.Contracts.Services;
 using DonkeyWork.Recordings.Identity.Core.Services;
@@ -31,6 +32,7 @@ public static class DependencyInjection
 
         services.AddScoped<IdentityContext>();
         services.AddScoped<IIdentityContext>(sp => sp.GetRequiredService<IdentityContext>());
+        services.AddScoped<IUserApiKeyService, UserApiKeyService>();
 
         services.AddHttpClient();
 
@@ -39,10 +41,15 @@ public static class DependencyInjection
                 options.DefaultScheme = MultiAuthScheme;
                 options.DefaultChallengeScheme = MultiAuthScheme;
             })
-            .AddPolicyScheme(MultiAuthScheme, "JWT", options =>
+            .AddPolicyScheme(MultiAuthScheme, "JWT or API Key", options =>
             {
-                options.ForwardDefaultSelector = _ => JwtBearerDefaults.AuthenticationScheme;
+                options.ForwardDefaultSelector = context =>
+                    context.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName)
+                        ? ApiKeyAuthenticationHandler.SchemeName
+                        : JwtBearerDefaults.AuthenticationScheme;
             })
+            .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+                ApiKeyAuthenticationHandler.SchemeName, _ => { })
             .AddJwtBearer(options =>
             {
                 var metadataAuthority = keycloakOptions.InternalAuthority ?? keycloakOptions.Authority;

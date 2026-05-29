@@ -153,6 +153,31 @@ export const voices = {
   },
 };
 
+export interface ApiKeyItemV1 {
+  id: string;
+  name: string;
+  description?: string | null;
+  maskedKey: string;
+  createdAt: string;
+}
+
+export interface CreateApiKeyResponseV1 {
+  id: string;
+  name: string;
+  description?: string | null;
+  key: string;
+  createdAt: string;
+}
+
+export const apiKeys = {
+  list: () => json<ApiKeyItemV1[]>('/api/v1/apikeys'),
+  create: (req: { name: string; description?: string }) =>
+    json<CreateApiKeyResponseV1>('/api/v1/apikeys', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
+    }),
+  delete: (id: string) => json<void>(`/api/v1/apikeys/${id}`, { method: 'DELETE' }),
+};
+
 export const feedSettings = {
   get: () => json<FeedSettingsV1>('/api/v1/feed-settings'),
   update: (req: UpdateFeedSettingsRequest) =>

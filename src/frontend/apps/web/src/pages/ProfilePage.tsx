@@ -3,6 +3,7 @@ import { UserCircle, Copy, Check, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { feedSettings, type FeedSettingsV1 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { ApiKeysPanel } from '@/components/ApiKeysPanel';
 import { toast } from 'sonner';
 
 export function ProfilePage() {
@@ -52,6 +53,8 @@ export function ProfilePage() {
           <dd className="col-span-2 font-mono text-xs">{user?.id ?? '—'}</dd>
         </dl>
       </section>
+
+      <ApiKeysPanel />
 
       <section className="rounded-2xl border border-border bg-card p-6 space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Master Feed</h2>

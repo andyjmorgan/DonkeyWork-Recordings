@@ -1,6 +1,7 @@
 using System.Reflection;
 using DonkeyWork.Recordings.Identity.Contracts.Services;
 using DonkeyWork.Recordings.Persistence.Entities;
+using DonkeyWork.Recordings.Persistence.Entities.Credentials;
 using DonkeyWork.Recordings.Persistence.Entities.Tts;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,8 @@ public class RecordingsDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<TtsPlaybackEntity> Playback => Set<TtsPlaybackEntity>();
 
     public DbSet<UserFeedSettingsEntity> UserFeedSettings => Set<UserFeedSettingsEntity>();
+
+    public DbSet<UserApiKeyEntity> UserApiKeys => Set<UserApiKeyEntity>();
 
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 

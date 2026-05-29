@@ -61,7 +61,7 @@ public sealed class AudioGenerationWorker : BackgroundService
             services.GetRequiredService<ITtsChunker>(),
             services.GetRequiredService<ITtsProvider>(),
             services.GetRequiredService<IStorageService>(),
-            services.GetRequiredService<IOptions<MagpieOptions>>(),
+            services.GetRequiredService<IOptions<ChatterboxOptions>>(),
             services.GetRequiredService<ILogger<GenerateAudioRecordingCommand>>(),
             cancellationToken);
     }

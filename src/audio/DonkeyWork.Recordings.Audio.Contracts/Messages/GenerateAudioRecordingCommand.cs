@@ -7,5 +7,4 @@ public sealed record GenerateAudioRecordingCommand(
     string Voice,
     string Language,
     int TargetCharCount,
-    int MaxCharCount,
-    int MaxParallelism);
+    int MaxCharCount);

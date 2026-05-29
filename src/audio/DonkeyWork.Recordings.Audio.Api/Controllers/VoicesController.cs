@@ -13,7 +13,7 @@ namespace DonkeyWork.Recordings.Audio.Api.Controllers;
 [Route("api/v1/voices")]
 public class VoicesController : ControllerBase
 {
-    private const string CacheKey = "magpie.voices.v1";
+    private const string CacheKey = "tts.voices.v1";
     private const string PreviewText = "Testing, one, two, three.";
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
@@ -21,20 +21,20 @@ public class VoicesController : ControllerBase
     private readonly ISsmlPreprocessor _ssml;
     private readonly IGptOssPreprocessor _preprocessor;
     private readonly IMemoryCache _cache;
-    private readonly IOptions<MagpieOptions> _magpieOptions;
+    private readonly IOptions<ChatterboxOptions> _ttsOptions;
 
     public VoicesController(
         ITtsProvider ttsProvider,
         ISsmlPreprocessor ssml,
         IGptOssPreprocessor preprocessor,
         IMemoryCache cache,
-        IOptions<MagpieOptions> magpieOptions)
+        IOptions<ChatterboxOptions> ttsOptions)
     {
         _ttsProvider = ttsProvider;
         _ssml = ssml;
         _preprocessor = preprocessor;
         _cache = cache;
-        _magpieOptions = magpieOptions;
+        _ttsOptions = ttsOptions;
     }
 
     [HttpGet]
@@ -92,7 +92,7 @@ public class VoicesController : ControllerBase
         var wrapped = _ssml.Wrap(spoken);
         var clip = await _ttsProvider.SynthesizeAsync(
             wrapped,
-            new TtsProviderRequest(request.Voice, request.Language, _magpieOptions.Value.SampleRateHz),
+            new TtsProviderRequest(request.Voice, request.Language, _ttsOptions.Value.SampleRateHz),
             cancellationToken);
 
         return File(clip.Audio, "audio/wav");

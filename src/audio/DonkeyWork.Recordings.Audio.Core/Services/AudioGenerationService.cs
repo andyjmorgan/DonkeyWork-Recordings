@@ -12,23 +12,21 @@ namespace DonkeyWork.Recordings.Audio.Core.Services;
 
 public sealed class AudioGenerationService : IAudioGenerationService
 {
-    private const int DefaultMaxParallelism = 2;
-
     private readonly RecordingsDbContext _dbContext;
     private readonly IIdentityContext _identityContext;
     private readonly IAudioGenerationDispatcher _dispatcher;
-    private readonly MagpieOptions _magpieOptions;
+    private readonly ChatterboxOptions _ttsOptions;
 
     public AudioGenerationService(
         RecordingsDbContext dbContext,
         IIdentityContext identityContext,
         IAudioGenerationDispatcher dispatcher,
-        IOptions<MagpieOptions> magpieOptions)
+        IOptions<ChatterboxOptions> ttsOptions)
     {
         _dbContext = dbContext;
         _identityContext = identityContext;
         _dispatcher = dispatcher;
-        _magpieOptions = magpieOptions.Value;
+        _ttsOptions = ttsOptions.Value;
     }
 
     public async Task<Guid> StartGenerationAsync(StartAudioGenerationRequestV1 request, CancellationToken cancellationToken = default)
@@ -57,11 +55,11 @@ public sealed class AudioGenerationService : IAudioGenerationService
 
         var voice = request.Voice
             ?? collection?.DefaultVoice
-            ?? _magpieOptions.DefaultVoice;
+            ?? _ttsOptions.DefaultVoice;
 
         var language = request.Language
             ?? collection?.DefaultLanguage
-            ?? _magpieOptions.DefaultLanguage;
+            ?? _ttsOptions.DefaultLanguage;
 
         var sequenceNumber = request.SequenceNumber ?? await NextSequenceNumberAsync(request.CollectionId, cancellationToken);
 
@@ -94,8 +92,7 @@ public sealed class AudioGenerationService : IAudioGenerationService
             Voice: voice,
             Language: language,
             TargetCharCount: request.TargetCharCount,
-            MaxCharCount: request.MaxCharCount,
-            MaxParallelism: DefaultMaxParallelism);
+            MaxCharCount: request.MaxCharCount);
 
         await _dispatcher.DispatchAsync(command, cancellationToken);
 

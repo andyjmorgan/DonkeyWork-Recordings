@@ -96,7 +96,9 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
       const audio = audioRef.current ?? new Audio();
       audioRef.current = audio;
       audio.src = url;
-      await audio.play();
+      // Fire-and-forget: awaiting play() can hang indefinitely if autoplay
+      // is blocked, which would leave the button stuck on "Synthesising…".
+      audio.play().catch((e) => toast.error(`Playback blocked: ${e.message ?? e}`));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Preview failed');
     } finally {

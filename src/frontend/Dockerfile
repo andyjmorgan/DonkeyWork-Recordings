@@ -52,16 +52,22 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # MCP at root — anything POSTed to / goes to the backend.
+    # MCP at root — POST / proxies to the backend via the named @mcp
+    # location (proxy_http_version / proxy_set_header are not allowed
+    # inside an `if {}` block in nginx core).
     location = / {
+        error_page 418 = @mcp;
+        if ($request_method = POST) { return 418; }
         try_files /index.html =404;
-        if ($request_method = POST) {
-            proxy_pass http://api:8080;
-            proxy_http_version 1.1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        }
+    }
+
+    location @mcp {
+        proxy_pass http://api:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {

@@ -11,8 +11,35 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { apiKeys, type ApiKeyItemV1, type CreateApiKeyResponseV1 } from '@/lib/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { apiKeys, type ApiKeyItemV1, type ApiKeyScope, type CreateApiKeyResponseV1 } from '@/lib/api';
 import { toast } from 'sonner';
+
+const SCOPE_LABELS: Record<ApiKeyScope, string> = {
+  RestAndMcp: 'REST + MCP',
+  McpOnly: 'MCP only',
+  RestOnly: 'REST only',
+};
+
+function formatLastUsed(iso?: string | null): string {
+  if (!iso) return 'Never used';
+  const used = new Date(iso);
+  const diffMs = Date.now() - used.getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return 'Used just now';
+  if (minutes < 60) return `Used ${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Used ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `Used ${days}d ago`;
+  return `Used ${used.toLocaleDateString()}`;
+}
 
 export function ApiKeysPanel() {
   const [keys, setKeys] = useState<ApiKeyItemV1[] | null>(null);
@@ -78,15 +105,20 @@ export function ApiKeysPanel() {
         <ul className="divide-y divide-border">
           {keys.map((k) => (
             <li key={k.id} className="flex items-center justify-between gap-4 py-3">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="truncate">{k.name}</span>
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {SCOPE_LABELS[k.scope]}
+                  </span>
                 </div>
-                <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span className="font-mono">{k.maskedKey}</span>
                   <span>·</span>
-                  <span>{new Date(k.createdAt).toLocaleDateString()}</span>
+                  <span>Created {new Date(k.createdAt).toLocaleDateString()}</span>
+                  <span>·</span>
+                  <span>{formatLastUsed(k.lastUsedAt)}</span>
                 </div>
                 {k.description && (
                   <p className="mt-1 text-xs text-muted-foreground truncate">{k.description}</p>
@@ -139,12 +171,14 @@ interface CreateKeyDialogProps {
 function CreateKeyDialog({ open, onOpenChange, onCreated, createdKey, copied, onCopy }: CreateKeyDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [scope, setScope] = useState<ApiKeyScope>('RestAndMcp');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open && !createdKey) {
       setName('');
       setDescription('');
+      setScope('RestAndMcp');
     }
   }, [open, createdKey]);
 
@@ -156,7 +190,11 @@ function CreateKeyDialog({ open, onOpenChange, onCreated, createdKey, copied, on
     }
     setSubmitting(true);
     try {
-      const created = await apiKeys.create({ name: name.trim(), description: description.trim() || undefined });
+      const created = await apiKeys.create({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        scope,
+      });
       onCreated(created);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Create failed');
@@ -182,6 +220,22 @@ function CreateKeyDialog({ open, onOpenChange, onCreated, createdKey, copied, on
               <div className="space-y-2">
                 <Label htmlFor="apiKeyDesc">Description (optional)</Label>
                 <Input id="apiKeyDesc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Where this key will be used" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="apiKeyScope">Allowed surface</Label>
+                <Select value={scope} onValueChange={(v) => setScope(v as ApiKeyScope)}>
+                  <SelectTrigger id="apiKeyScope">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RestAndMcp">REST + MCP (everything)</SelectItem>
+                    <SelectItem value="McpOnly">MCP only (POST /)</SelectItem>
+                    <SelectItem value="RestOnly">REST only (/api/*)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Scope is enforced on every request — a mis-scoped call returns 401.
+                </p>
               </div>
             </div>
             <DialogFooter>

@@ -36,7 +36,7 @@ public sealed class UserApiKeyService : IUserApiKeyService
         return entities.Select(e => ToModel(e, masked: true)).ToList();
     }
 
-    public async Task<UserApiKey> CreateAsync(string name, string? description, CancellationToken cancellationToken = default)
+    public async Task<UserApiKey> CreateAsync(string name, string? description, ApiKeyScope scope, CancellationToken cancellationToken = default)
     {
         var apiKey = GenerateApiKey();
 
@@ -46,6 +46,7 @@ public sealed class UserApiKeyService : IUserApiKeyService
             Name = name,
             Description = description ?? string.Empty,
             EncryptedKey = Encrypt(apiKey),
+            Scope = scope,
         };
 
         _dbContext.UserApiKeys.Add(entity);
@@ -59,6 +60,8 @@ public sealed class UserApiKeyService : IUserApiKeyService
             Description = string.IsNullOrEmpty(entity.Description) ? null : entity.Description,
             Key = apiKey,
             CreatedAt = entity.CreatedAt,
+            LastUsedAt = entity.LastUsedAt,
+            Scope = scope,
         };
     }
 
@@ -77,34 +80,47 @@ public sealed class UserApiKeyService : IUserApiKeyService
         return true;
     }
 
-    public async Task<Guid?> ValidateAsync(string apiKey, CancellationToken cancellationToken = default)
+    public async Task<ApiKeyValidationResult?> ValidateAsync(string apiKey, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(apiKey) || !apiKey.StartsWith(KeyPrefix, StringComparison.Ordinal))
         {
             return null;
         }
 
-        // The query filter scopes UserApiKeys to the current user, but at
-        // authentication time no user is known yet — bypass it to scan all
-        // rows, then return the owning user id.
+        // The global query filter scopes UserApiKeys to the current user, but
+        // at authentication time no user is known yet — bypass it. AsNoTracking
+        // so the loaded entities don't pollute the change tracker for any
+        // downstream controller queries on the same scoped DbContext.
         var entities = await _dbContext.UserApiKeys
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .ToListAsync(cancellationToken);
 
         foreach (var entity in entities)
         {
             try
             {
-                if (Decrypt(entity.EncryptedKey) == apiKey)
+                if (Decrypt(entity.EncryptedKey) != apiKey)
                 {
-                    return entity.UserId;
+                    continue;
                 }
             }
             catch (CryptographicException)
             {
-                // Skip rows that fail to decrypt (e.g. encryption key rotated)
-                // rather than failing the entire lookup.
+                // Skip rows that fail to decrypt (e.g. encryption key rotated).
+                continue;
             }
+
+            // Stamp LastUsedAt via ExecuteUpdate so we don't drag the
+            // AuditableInterceptor along (UpdatedAt should track real edits,
+            // not every authenticated request).
+            var now = DateTimeOffset.UtcNow;
+            await _dbContext.UserApiKeys
+                .IgnoreQueryFilters()
+                .Where(e => e.Id == entity.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.LastUsedAt, now), cancellationToken);
+
+            return new ApiKeyValidationResult(entity.UserId, entity.Scope);
         }
 
         return null;
@@ -122,6 +138,8 @@ public sealed class UserApiKeyService : IUserApiKeyService
             Description = string.IsNullOrEmpty(entity.Description) ? null : entity.Description,
             Key = masked ? MaskKey(key) : key,
             CreatedAt = entity.CreatedAt,
+            LastUsedAt = entity.LastUsedAt,
+            Scope = entity.Scope,
         };
     }
 

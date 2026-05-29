@@ -1,3 +1,4 @@
+using DonkeyWork.Recordings.Identity.Contracts.Models;
 using DonkeyWork.Recordings.Persistence.Entities.Credentials;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -32,6 +33,15 @@ public class UserApiKeyConfiguration : IEntityTypeConfiguration<UserApiKeyEntity
         builder.Property(e => e.EncryptedKey)
             .HasColumnName("encrypted_key")
             .HasColumnType("bytea")
+            .IsRequired();
+
+        builder.Property(e => e.LastUsedAt)
+            .HasColumnName("last_used_at");
+
+        builder.Property(e => e.Scope)
+            .HasColumnName("scope")
+            .HasConversion<int>()
+            .HasDefaultValue(ApiKeyScope.RestAndMcp)
             .IsRequired();
 
         builder.Property(e => e.CreatedAt)

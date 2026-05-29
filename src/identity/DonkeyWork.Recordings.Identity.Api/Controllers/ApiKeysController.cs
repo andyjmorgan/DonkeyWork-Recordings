@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using DonkeyWork.Recordings.Identity.Contracts.Models;
 using DonkeyWork.Recordings.Identity.Contracts.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,6 +32,8 @@ public class ApiKeysController : ControllerBase
                 Description = k.Description,
                 MaskedKey = k.Key,
                 CreatedAt = k.CreatedAt,
+                LastUsedAt = k.LastUsedAt,
+                Scope = k.Scope,
             })
             .ToList());
     }
@@ -37,7 +41,11 @@ public class ApiKeysController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<CreateApiKeyResponseV1>> Create([FromBody] CreateApiKeyRequestV1 request, CancellationToken cancellationToken)
     {
-        var key = await _service.CreateAsync(request.Name.Trim(), request.Description?.Trim(), cancellationToken);
+        var key = await _service.CreateAsync(
+            request.Name.Trim(),
+            request.Description?.Trim(),
+            request.Scope ?? ApiKeyScope.RestAndMcp,
+            cancellationToken);
 
         return Ok(new CreateApiKeyResponseV1
         {
@@ -46,6 +54,7 @@ public class ApiKeysController : ControllerBase
             Description = key.Description,
             Key = key.Key,
             CreatedAt = key.CreatedAt,
+            Scope = key.Scope,
         });
     }
 
@@ -67,6 +76,11 @@ public class ApiKeysController : ControllerBase
         public required string MaskedKey { get; init; }
 
         public required DateTimeOffset CreatedAt { get; init; }
+
+        public DateTimeOffset? LastUsedAt { get; init; }
+
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public required ApiKeyScope Scope { get; init; }
     }
 
     public sealed class CreateApiKeyRequestV1
@@ -78,6 +92,9 @@ public class ApiKeysController : ControllerBase
 
         [MaxLength(1000)]
         public string? Description { get; init; }
+
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ApiKeyScope? Scope { get; init; }
     }
 
     public sealed class CreateApiKeyResponseV1
@@ -93,5 +110,8 @@ public class ApiKeysController : ControllerBase
         public required string Key { get; init; }
 
         public required DateTimeOffset CreatedAt { get; init; }
+
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public required ApiKeyScope Scope { get; init; }
     }
 }

@@ -153,12 +153,16 @@ export const voices = {
   },
 };
 
+export type ApiKeyScope = 'RestAndMcp' | 'McpOnly' | 'RestOnly';
+
 export interface ApiKeyItemV1 {
   id: string;
   name: string;
   description?: string | null;
   maskedKey: string;
   createdAt: string;
+  lastUsedAt?: string | null;
+  scope: ApiKeyScope;
 }
 
 export interface CreateApiKeyResponseV1 {
@@ -167,11 +171,12 @@ export interface CreateApiKeyResponseV1 {
   description?: string | null;
   key: string;
   createdAt: string;
+  scope: ApiKeyScope;
 }
 
 export const apiKeys = {
   list: () => json<ApiKeyItemV1[]>('/api/v1/apikeys'),
-  create: (req: { name: string; description?: string }) =>
+  create: (req: { name: string; description?: string; scope?: ApiKeyScope }) =>
     json<CreateApiKeyResponseV1>('/api/v1/apikeys', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
     }),

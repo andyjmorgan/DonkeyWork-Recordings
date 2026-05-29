@@ -15,4 +15,17 @@ public sealed class UserApiKey
     public required string Key { get; init; }
 
     public required DateTimeOffset CreatedAt { get; init; }
+
+    public DateTimeOffset? LastUsedAt { get; init; }
+
+    public required ApiKeyScope Scope { get; init; }
 }
+
+public enum ApiKeyScope
+{
+    RestAndMcp = 0,
+    McpOnly = 1,
+    RestOnly = 2,
+}
+
+public sealed record ApiKeyValidationResult(Guid UserId, ApiKeyScope Scope);

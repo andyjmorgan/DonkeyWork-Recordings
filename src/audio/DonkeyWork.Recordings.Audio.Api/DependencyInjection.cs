@@ -41,12 +41,7 @@ public static class DependencyInjection
             client.Timeout = opts.RequestTimeout;
         });
 
-        services.AddHttpClient<IGptOssPreprocessor, GptOssPreprocessor>((sp, client) =>
-        {
-            var opts = sp.GetRequiredService<IOptions<GptOssOptions>>().Value;
-            client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
-            client.Timeout = opts.RequestTimeout;
-        });
+        services.AddSingleton<IGptOssPreprocessor, GptOssPreprocessor>();
 
         services.AddControllers().AddApplicationPart(typeof(DependencyInjection).Assembly);
 

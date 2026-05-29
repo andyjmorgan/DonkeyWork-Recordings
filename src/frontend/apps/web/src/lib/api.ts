@@ -23,6 +23,7 @@ export interface TtsRecordingV1 {
   description: string;
   filePath: string;
   transcript: string;
+  processedTranscript: string;
   contentType: string;
   sizeBytes: number;
   durationSeconds: number;

@@ -95,6 +95,13 @@ public static class FeedXmlBuilder
             new XElement(Itunes + "episodeType", "full"),
             new XElement(Itunes + "explicit", channel.IsExplicit ? "true" : "false"));
 
+        // No per-episode artwork yet, so fall back to the channel cover (itself defaulted) so every
+        // episode shows art. When recordings carry their own image, prefer it here.
+        if (!string.IsNullOrEmpty(channel.ImageUrl))
+        {
+            item.Add(new XElement(Itunes + "image", new XAttribute("href", channel.ImageUrl)));
+        }
+
         if (r.SequenceNumber.HasValue)
         {
             item.Add(new XElement(Itunes + "episode", r.SequenceNumber.Value));

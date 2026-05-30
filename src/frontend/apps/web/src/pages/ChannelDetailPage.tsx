@@ -161,7 +161,7 @@ function RecordingRow({
   return (
     <div className="space-y-2 group">
       <div className="flex items-start justify-between gap-3">
-        <AudioPlayer recording={live} className="flex-1" />
+        <AudioPlayer recording={live} className="flex-1 min-w-0" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="mt-2 shrink-0 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">

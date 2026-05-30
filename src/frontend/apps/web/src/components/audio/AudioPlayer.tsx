@@ -108,6 +108,18 @@ export function AudioPlayer({ recording, className }: { recording: TtsRecordingV
             {recording.status === 'Ready' ? `${fmt(position)} / ${fmt(duration)}` : recording.status}
           </div>
         </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={pct}
+          onChange={onScrub}
+          disabled={!isReady}
+          className="flex-1 accent-primary"
+        />
         <Button
           onClick={cycleSpeed}
           variant="outline"
@@ -119,16 +131,6 @@ export function AudioPlayer({ recording, className }: { recording: TtsRecordingV
           {speed}×
         </Button>
       </div>
-
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={pct}
-        onChange={onScrub}
-        disabled={!isReady}
-        className="w-full accent-primary"
-      />
 
       {(recording.transcript || recording.processedTranscript) && (
         <details className="border-t border-border pt-2">

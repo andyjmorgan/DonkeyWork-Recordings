@@ -74,11 +74,32 @@ public sealed class FeedService : IFeedService
         return FeedXmlBuilder.Build(channel, recordings);
     }
 
+    public async Task<string?> GetTranscriptTextAsync(Guid userId, Guid recordingId, CancellationToken cancellationToken = default)
+    {
+        var recording = await _dbContext.Recordings
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == recordingId && r.UserId == userId, cancellationToken);
+
+        if (recording is null)
+        {
+            return null;
+        }
+
+        // The processed (spoken) text is what the audio actually says; fall back to the raw input.
+        var text = !string.IsNullOrWhiteSpace(recording.ProcessedTranscript)
+            ? recording.ProcessedTranscript
+            : recording.Transcript;
+
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
     private FeedChannelMetadata ResolveMasterChannelMetadata(Guid userId, UserFeedSettingsEntity? settings, string requestOrigin)
     {
         var origin = requestOrigin.TrimEnd('/');
         return new FeedChannelMetadata
         {
+            FeedBaseUrl = $"{origin}/feeds/{userId}",
             Title = settings?.Title ?? _options.DefaultFeedTitle,
             Description = settings?.Description ?? _options.DefaultFeedDescription,
             Language = settings?.Language ?? _options.DefaultLanguage,
@@ -97,6 +118,7 @@ public sealed class FeedService : IFeedService
         var origin = requestOrigin.TrimEnd('/');
         return new FeedChannelMetadata
         {
+            FeedBaseUrl = $"{origin}/feeds/{userId}",
             Title = string.IsNullOrWhiteSpace(collection.Name) ? _options.DefaultFeedTitle : collection.Name,
             Description = string.IsNullOrWhiteSpace(collection.Description) ? _options.DefaultFeedDescription : collection.Description,
             Language = collection.DefaultLanguage ?? _options.DefaultLanguage,

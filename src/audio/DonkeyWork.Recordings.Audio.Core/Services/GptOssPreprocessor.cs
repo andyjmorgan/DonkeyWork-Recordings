@@ -1,7 +1,9 @@
 using System.ClientModel;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DonkeyWork.Recordings.Audio.Contracts.Services;
+using DonkeyWork.Recordings.Audio.Core.Diagnostics;
 using DonkeyWork.Recordings.Audio.Core.Options;
 using Microsoft.Extensions.Options;
 using OpenAI;
@@ -88,15 +90,49 @@ public sealed class GptOssPreprocessor : IGptOssPreprocessor
                 jsonSchemaIsStrict: true),
         };
 
-        var completion = await _chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
+        using var activity = AudioDiagnostics.ActivitySource.StartActivity("gpt-oss.preprocess", ActivityKind.Client);
+        activity?.SetTag("gen_ai.system", "gpt-oss");
+        activity?.SetTag("gen_ai.operation.name", "chat");
+        activity?.SetTag("gen_ai.request.model", _options.Model);
+        activity?.SetTag("tts.input_chars", request.RawText.Length);
 
-        var content = completion.Value.Content.FirstOrDefault(part => part.Kind == ChatMessageContentPartKind.Text)?.Text
-            ?? throw new InvalidOperationException("gpt-oss response had no message content.");
+        var stopwatch = Stopwatch.StartNew();
+        var modelTag = new TagList { { "model", _options.Model } };
+        try
+        {
+            var completion = await _chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
 
-        var parsed = JsonSerializer.Deserialize<PreprocessPayload>(content)
-            ?? throw new InvalidOperationException("gpt-oss response did not parse as JSON.");
+            var content = completion.Value.Content.FirstOrDefault(part => part.Kind == ChatMessageContentPartKind.Text)?.Text
+                ?? throw new InvalidOperationException("gpt-oss response had no message content.");
 
-        return parsed.Paragraphs ?? Array.Empty<string>();
+            var parsed = JsonSerializer.Deserialize<PreprocessPayload>(content)
+                ?? throw new InvalidOperationException("gpt-oss response did not parse as JSON.");
+
+            var paragraphs = parsed.Paragraphs ?? Array.Empty<string>();
+            stopwatch.Stop();
+
+            if (completion.Value.Usage is { } usage)
+            {
+                activity?.SetTag("gen_ai.usage.input_tokens", usage.InputTokenCount);
+                activity?.SetTag("gen_ai.usage.output_tokens", usage.OutputTokenCount);
+            }
+
+            activity?.SetTag("tts.paragraphs", paragraphs.Count);
+
+            AudioDiagnostics.PreprocessDuration.Record(stopwatch.Elapsed.TotalSeconds, modelTag);
+            AudioDiagnostics.PreprocessParagraphs.Record(paragraphs.Count, modelTag);
+            AudioDiagnostics.PreprocessRequests.Add(1, new TagList { { "model", _options.Model }, { "outcome", "success" } });
+
+            return paragraphs;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            AudioDiagnostics.PreprocessDuration.Record(stopwatch.Elapsed.TotalSeconds, modelTag);
+            AudioDiagnostics.PreprocessRequests.Add(1, new TagList { { "model", _options.Model }, { "outcome", "error" } });
+            throw;
+        }
     }
 
     private sealed record PreprocessPayload

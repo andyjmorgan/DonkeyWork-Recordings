@@ -93,16 +93,20 @@ export function ChannelDetailPage() {
             <p className="text-xs text-muted-foreground italic">Tone: {collection.tone}</p>
           )}
         </div>
-        <div className="flex gap-2 shrink-0 flex-wrap">
-          <Button onClick={copyFeed} variant="outline" size="sm">
-            {copiedFeed ? <><Check className="h-4 w-4 mr-2" />Copied</> : <><Copy className="h-4 w-4 mr-2" />Copy feed URL</>}
+        <div className="flex items-center gap-2 shrink-0">
+          <Button onClick={copyFeed} variant="outline" size="sm" title="Copy feed URL">
+            {copiedFeed ? <Check className="h-4 w-4 sm:mr-2" /> : <Copy className="h-4 w-4 sm:mr-2" />}
+            <span className="hidden sm:inline">{copiedFeed ? 'Copied' : 'Copy feed URL'}</span>
           </Button>
           {podcastUrl && (
-            <Button asChild variant="outline" size="sm">
-              <a href={podcastUrl}><Podcast className="h-4 w-4 mr-2" />Apple Podcasts</a>
+            <Button asChild variant="outline" size="sm" title="Add to Apple Podcasts">
+              <a href={podcastUrl}>
+                <Podcast className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Apple Podcasts</span>
+              </a>
             </Button>
           )}
-          <Button onClick={() => setNewOpen(true)} size="sm">
+          <Button onClick={() => setNewOpen(true)} size="sm" className="ml-auto sm:ml-1">
             <Plus className="h-4 w-4 mr-2" />New recording
           </Button>
         </div>

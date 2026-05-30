@@ -106,34 +106,34 @@ export function AudioPlayer({ recording, className, actions }: { recording: TtsR
         className="w-full accent-primary"
       />
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button onClick={() => seek(-15)} variant="outline" size="icon" className="h-9 w-9" disabled={!isReady} title="Back 15s">
-            <SkipBack className="h-4 w-4" />
-          </Button>
+      <div className="relative flex items-center justify-center gap-2">
+        <Button onClick={() => seek(-15)} variant="outline" size="icon" className="h-9 w-9" disabled={!isReady} title="Back 15s">
+          <SkipBack className="h-4 w-4" />
+        </Button>
+        <Button
+          onClick={togglePlay}
+          size="icon"
+          className="h-11 w-11 rounded-full"
+          disabled={!isReady}
+          title={isReady ? (isPlaying ? 'Pause' : 'Play') : recording.status}
+        >
+          {!isReady ? <Loader2 className="h-5 w-5 animate-spin" /> : isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
+        </Button>
+        <Button onClick={() => seek(15)} variant="outline" size="icon" className="h-9 w-9" disabled={!isReady} title="Forward 15s">
+          <SkipForward className="h-4 w-4" />
+        </Button>
+        <div className="absolute inset-y-0 right-0 flex items-center">
           <Button
-            onClick={togglePlay}
-            size="icon"
-            className="h-11 w-11 rounded-full"
+            onClick={cycleSpeed}
+            variant="outline"
+            size="sm"
             disabled={!isReady}
-            title={isReady ? (isPlaying ? 'Pause' : 'Play') : recording.status}
+            className="shrink-0 px-2 tabular-nums"
+            title="Playback speed"
           >
-            {!isReady ? <Loader2 className="h-5 w-5 animate-spin" /> : isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
-          </Button>
-          <Button onClick={() => seek(15)} variant="outline" size="icon" className="h-9 w-9" disabled={!isReady} title="Forward 15s">
-            <SkipForward className="h-4 w-4" />
+            {speed}×
           </Button>
         </div>
-        <Button
-          onClick={cycleSpeed}
-          variant="outline"
-          size="sm"
-          disabled={!isReady}
-          className="shrink-0 px-2 tabular-nums"
-          title="Playback speed"
-        >
-          {speed}×
-        </Button>
       </div>
 
       {(recording.transcript || recording.processedTranscript) && (

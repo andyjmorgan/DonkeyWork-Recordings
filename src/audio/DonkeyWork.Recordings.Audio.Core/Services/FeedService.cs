@@ -83,12 +83,12 @@ public sealed class FeedService : IFeedService
             Description = settings?.Description ?? _options.DefaultFeedDescription,
             Language = settings?.Language ?? _options.DefaultLanguage,
             SelfUrl = $"{origin}/feeds/{userId}/all.xml",
-            HomepageLink = settings?.Link,
+            HomepageLink = settings?.Link ?? _options.PublicBaseUrl,
             Author = settings?.Author,
             AuthorEmail = settings?.AuthorEmail,
             ItunesCategory = settings?.ItunesCategory,
             IsExplicit = settings?.IsExplicit ?? false,
-            ImageUrl = settings?.CoverImagePath,
+            ImageUrl = string.IsNullOrWhiteSpace(settings?.CoverImagePath) ? _options.DefaultCoverImageUrl : settings.CoverImagePath,
         };
     }
 
@@ -101,12 +101,12 @@ public sealed class FeedService : IFeedService
             Description = string.IsNullOrWhiteSpace(collection.Description) ? _options.DefaultFeedDescription : collection.Description,
             Language = collection.DefaultLanguage ?? _options.DefaultLanguage,
             SelfUrl = $"{origin}/feeds/{userId}/{collection.Id}.xml",
-            HomepageLink = collection.Link,
+            HomepageLink = collection.Link ?? _options.PublicBaseUrl,
             Author = collection.Author,
             AuthorEmail = collection.AuthorEmail,
             ItunesCategory = collection.ItunesCategory,
             IsExplicit = collection.IsExplicit,
-            ImageUrl = collection.CoverImagePath,
+            ImageUrl = string.IsNullOrWhiteSpace(collection.CoverImagePath) ? _options.DefaultCoverImageUrl : collection.CoverImagePath,
         };
     }
 }

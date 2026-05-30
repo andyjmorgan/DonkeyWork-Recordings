@@ -14,6 +14,8 @@ public class TtsRecordingEntity : BaseEntity
 
     public string ContentType { get; set; } = "audio/mpeg";
 
+    public string TtsModel { get; set; } = "chatterbox";
+
     public long SizeBytes { get; set; }
 
     public double DurationSeconds { get; set; }

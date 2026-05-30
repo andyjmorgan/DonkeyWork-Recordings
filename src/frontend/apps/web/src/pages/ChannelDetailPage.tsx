@@ -124,6 +124,7 @@ export function ChannelDetailPage() {
         open={newOpen}
         onOpenChange={setNewOpen}
         collectionId={collection.id}
+        defaultTtsModel={collection.defaultTtsModel}
         defaultVoice={collection.defaultVoice}
         defaultLanguage={collection.defaultLanguage}
         onCreated={handleCreated}

@@ -14,7 +14,9 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddAudioApi(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<TtsOptions>(configuration.GetSection(TtsOptions.SectionName));
         services.Configure<ChatterboxOptions>(configuration.GetSection(ChatterboxOptions.SectionName));
+        services.Configure<KokoroOptions>(configuration.GetSection(KokoroOptions.SectionName));
         services.Configure<GptOssOptions>(configuration.GetSection(GptOssOptions.SectionName));
         services.Configure<RecordingsOptions>(configuration.GetSection(RecordingsOptions.SectionName));
 
@@ -34,12 +36,23 @@ public static class DependencyInjection
 
         services.AddMemoryCache();
 
-        services.AddHttpClient<ITtsProvider, ChatterboxTtsProvider>((sp, client) =>
+        services.AddHttpClient(ChatterboxTtsProvider.ProviderKey, (sp, client) =>
         {
             var opts = sp.GetRequiredService<IOptions<ChatterboxOptions>>().Value;
             client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
             client.Timeout = opts.RequestTimeout;
         });
+
+        services.AddHttpClient(KokoroTtsProvider.ProviderKey, (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<KokoroOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
+            client.Timeout = opts.RequestTimeout;
+        });
+
+        services.AddSingleton<ITtsProvider, ChatterboxTtsProvider>();
+        services.AddSingleton<ITtsProvider, KokoroTtsProvider>();
+        services.AddSingleton<ITtsProviderRegistry, TtsProviderRegistry>();
 
         services.AddSingleton<IGptOssPreprocessor, GptOssPreprocessor>();
 

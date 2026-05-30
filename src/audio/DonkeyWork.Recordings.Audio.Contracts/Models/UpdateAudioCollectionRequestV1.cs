@@ -8,6 +8,8 @@ public sealed class UpdateAudioCollectionRequestV1
 
     public string? CoverImagePath { get; init; }
 
+    public string? DefaultTtsModel { get; init; }
+
     public string? DefaultVoice { get; init; }
 
     public string? DefaultLanguage { get; init; }

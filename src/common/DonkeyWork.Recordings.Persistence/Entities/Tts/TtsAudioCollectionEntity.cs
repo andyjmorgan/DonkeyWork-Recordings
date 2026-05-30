@@ -8,6 +8,8 @@ public class TtsAudioCollectionEntity : BaseEntity
 
     public string? CoverImagePath { get; set; }
 
+    public string? DefaultTtsModel { get; set; }
+
     public string? DefaultVoice { get; set; }
 
     public string? DefaultLanguage { get; set; }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,7 @@ function fmt(seconds: number): string {
     : `${m.toString().padStart(2, '0')}:${r.toString().padStart(2, '0')}`;
 }
 
-export function AudioPlayer({ recording, className }: { recording: TtsRecordingV1; className?: string }) {
+export function AudioPlayer({ recording, className, actions }: { recording: TtsRecordingV1; className?: string; actions?: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
@@ -25,16 +25,16 @@ export function AudioPlayer({ recording, className }: { recording: TtsRecordingV
   const [speed, setSpeed] = useState(1);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = speed;
-  }, [speed]);
-
-  const cycleSpeed = () => setSpeed((s) => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length]);
-
-  useEffect(() => {
     setIsPlaying(false);
     setPosition(0);
     setDuration(recording.durationSeconds || 0);
   }, [recording.id, recording.durationSeconds]);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = speed;
+  }, [speed]);
+
+  const cycleSpeed = () => setSpeed((s) => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length]);
 
   const togglePlay = async () => {
     const a = audioRef.current;
@@ -69,7 +69,7 @@ export function AudioPlayer({ recording, className }: { recording: TtsRecordingV
   const pct = duration > 0 ? (position / duration) * 100 : 0;
 
   return (
-    <div className={cn('rounded-2xl border border-border bg-card p-4 space-y-3', className)}>
+    <div className={cn('rounded-2xl border border-border bg-card p-4 space-y-4', className)}>
       <audio
         ref={audioRef}
         src={isReady ? recording.filePath : undefined}
@@ -86,40 +86,44 @@ export function AudioPlayer({ recording, className }: { recording: TtsRecordingV
         }}
       />
 
-      <div className="flex items-center gap-3">
-        <Button onClick={() => seek(-15)} variant="outline" size="icon" disabled={!isReady}>
-          <SkipBack className="h-4 w-4" />
-        </Button>
-        <Button
-          onClick={togglePlay}
-          size="icon"
-          className="h-12 w-12 rounded-full"
-          disabled={!isReady}
-          title={isReady ? (isPlaying ? 'Pause' : 'Play') : recording.status}
-        >
-          {!isReady ? <Loader2 className="h-5 w-5 animate-spin" /> : isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
-        </Button>
-        <Button onClick={() => seek(15)} variant="outline" size="icon" disabled={!isReady}>
-          <SkipForward className="h-4 w-4" />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium truncate">{recording.chapterTitle || recording.name}</div>
-          <div className="text-xs text-muted-foreground">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium">{recording.chapterTitle || recording.name}</div>
+          <div className="text-xs text-muted-foreground tabular-nums">
             {recording.status === 'Ready' ? `${fmt(position)} / ${fmt(duration)}` : recording.status}
           </div>
         </div>
+        {actions && <div className="-mr-1 -mt-1 shrink-0">{actions}</div>}
       </div>
 
-      <div className="flex items-center gap-3">
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={pct}
-          onChange={onScrub}
-          disabled={!isReady}
-          className="flex-1 accent-primary"
-        />
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={pct}
+        onChange={onScrub}
+        disabled={!isReady}
+        className="w-full accent-primary"
+      />
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Button onClick={() => seek(-15)} variant="outline" size="icon" className="h-9 w-9" disabled={!isReady} title="Back 15s">
+            <SkipBack className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={togglePlay}
+            size="icon"
+            className="h-11 w-11 rounded-full"
+            disabled={!isReady}
+            title={isReady ? (isPlaying ? 'Pause' : 'Play') : recording.status}
+          >
+            {!isReady ? <Loader2 className="h-5 w-5 animate-spin" /> : isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
+          </Button>
+          <Button onClick={() => seek(15)} variant="outline" size="icon" className="h-9 w-9" disabled={!isReady} title="Forward 15s">
+            <SkipForward className="h-4 w-4" />
+          </Button>
+        </div>
         <Button
           onClick={cycleSpeed}
           variant="outline"
@@ -133,7 +137,7 @@ export function AudioPlayer({ recording, className }: { recording: TtsRecordingV
       </div>
 
       {(recording.transcript || recording.processedTranscript) && (
-        <details className="border-t border-border pt-2">
+        <details className="border-t border-border pt-3">
           <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">
             Transcript
           </summary>

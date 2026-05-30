@@ -159,27 +159,29 @@ function RecordingRow({
   if (!live) return null;
 
   return (
-    <div className="space-y-2 group">
-      <div className="flex items-start justify-between gap-3">
-        <AudioPlayer recording={live} className="flex-1 min-w-0" />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="mt-2 shrink-0 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onMove}>
-              <FolderInput className="h-4 w-4 mr-2" />Move…
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDelete} className="text-destructive">
-              <Trash2 className="h-4 w-4 mr-2" />Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+    <div className="space-y-2">
+      <AudioPlayer
+        recording={live}
+        actions={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onMove}>
+                <FolderInput className="h-4 w-4 mr-2" />Move…
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" />Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      />
       {live.status === 'Failed' && live.errorMessage && (
-        <div className="text-xs text-destructive pl-4">Error: {live.errorMessage}</div>
+        <div className="text-xs text-destructive px-4">Error: {live.errorMessage}</div>
       )}
     </div>
   );

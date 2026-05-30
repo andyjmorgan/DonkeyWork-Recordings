@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Volume2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { recordings, voices, type TtsModelV1, type TtsRecordingV1 } from '@/lib/api';
+import { gradeRank } from '@/lib/voiceGrades';
 import { toast } from 'sonner';
 
 interface Props {
@@ -29,6 +31,7 @@ export function NewRecordingDialog({ open, onOpenChange, collectionId, defaultTt
   const [models, setModels] = useState<TtsModelV1[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -59,8 +62,22 @@ export function NewRecordingDialog({ open, onOpenChange, collectionId, defaultTt
       if (!byLang.has(v.language)) byLang.set(v.language, []);
       byLang.get(v.language)!.push(v);
     }
+    for (const items of byLang.values()) {
+      items.sort((a, b) => gradeRank(a.rating) - gradeRank(b.rating) || a.name.localeCompare(b.name));
+    }
     return Array.from(byLang.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [selectedModel]);
+
+  const selectedSampleUrl = voice !== INHERIT
+    ? selectedModel?.voices.find((v) => v.id === voice)?.sampleUrl
+    : undefined;
+
+  const playSample = (url: string) => {
+    const audio = audioRef.current ?? new Audio();
+    audioRef.current = audio;
+    audio.src = url;
+    audio.play().catch((e) => toast.error(`Playback blocked: ${e.message ?? e}`));
+  };
 
   const handleModelChange = (value: string) => {
     setTtsModel(value);
@@ -142,26 +159,38 @@ export function NewRecordingDialog({ open, onOpenChange, collectionId, defaultTt
             {supportsVoice && (
               <div className="space-y-2">
                 <Label htmlFor="voice">Voice</Label>
-                <Select value={voice} onValueChange={setVoice}>
-                  <SelectTrigger id="voice">
-                    <SelectValue placeholder="Pick a voice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={INHERIT}>
-                      {defaultVoice ? `Inherit channel default (${defaultVoice})` : 'Inherit channel / model default'}
-                    </SelectItem>
-                    {grouped.map(([lang, items]) => (
-                      <SelectGroup key={lang}>
-                        <SelectLabel>{lang}</SelectLabel>
-                        {items.map((v) => (
-                          <SelectItem key={v.id} value={v.id}>
-                            {v.name}{v.emotion ? ` · ${v.emotion}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={voice} onValueChange={setVoice}>
+                    <SelectTrigger id="voice" className="flex-1">
+                      <SelectValue placeholder="Pick a voice" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={INHERIT}>
+                        {defaultVoice ? `Inherit channel default (${defaultVoice})` : 'Inherit channel / model default'}
+                      </SelectItem>
+                      {grouped.map(([lang, items]) => (
+                        <SelectGroup key={lang}>
+                          <SelectLabel>{lang}</SelectLabel>
+                          {items.map((v) => (
+                            <SelectItem key={v.id} value={v.id}>
+                              {v.name}{v.rating ? ` · ${v.rating}` : ''}{v.emotion ? ` · ${v.emotion}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    disabled={!selectedSampleUrl}
+                    onClick={() => selectedSampleUrl && playSample(selectedSampleUrl)}
+                    title="Play sample"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
           </div>

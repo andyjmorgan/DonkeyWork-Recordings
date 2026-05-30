@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { collections, voices, type AudioCollectionV1, type TtsModelV1 } from '@/lib/api';
+import { gradeRank } from '@/lib/voiceGrades';
 import { toast } from 'sonner';
 
 interface Props {
@@ -73,13 +74,26 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
     return [...set].sort();
   }, [selectedModel, defaultLanguage]);
 
-  // Hide emotion variants and scope to the picked language — keeps the dropdown usable.
+  // Hide emotion variants, scope to the picked language, and order best-grade first.
   const filteredVoices = useMemo(
-    () => (selectedModel?.voices ?? []).filter(
-      (v) => !v.emotion && (!defaultLanguage || v.language === defaultLanguage),
-    ),
+    () => (selectedModel?.voices ?? [])
+      .filter((v) => !v.emotion && (!defaultLanguage || v.language === defaultLanguage))
+      .sort((a, b) => gradeRank(a.rating) - gradeRank(b.rating) || a.name.localeCompare(b.name)),
     [selectedModel, defaultLanguage],
   );
+
+  const selectedSampleUrl = defaultVoice
+    ? selectedModel?.voices.find((v) => v.id === defaultVoice)?.sampleUrl
+    : undefined;
+
+  const playSample = (url: string) => {
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    audioUrlRef.current = null;
+    const audio = audioRef.current ?? new Audio();
+    audioRef.current = audio;
+    audio.src = url;
+    audio.play().catch((e) => toast.error(`Playback blocked: ${e.message ?? e}`));
+  };
 
   const handleModelChange = (value: string) => {
     setDefaultTtsModel(value === INHERIT_VALUE ? '' : value);
@@ -222,21 +236,33 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
             {supportsVoice && (
               <div className="space-y-2">
                 <Label htmlFor="defaultVoice">Default voice</Label>
-                <Select
-                  value={defaultVoice || INHERIT_VALUE}
-                  onValueChange={(v) => setDefaultVoice(v === INHERIT_VALUE ? '' : v)}
-                  disabled={!modelsReady}
-                >
-                  <SelectTrigger id="defaultVoice">
-                    <SelectValue placeholder={models ? 'Inherit model default' : 'Loading…'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={INHERIT_VALUE}>Inherit model default</SelectItem>
-                    {filteredVoices.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={defaultVoice || INHERIT_VALUE}
+                    onValueChange={(v) => setDefaultVoice(v === INHERIT_VALUE ? '' : v)}
+                    disabled={!modelsReady}
+                  >
+                    <SelectTrigger id="defaultVoice" className="flex-1">
+                      <SelectValue placeholder={models ? 'Inherit model default' : 'Loading…'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={INHERIT_VALUE}>Inherit model default</SelectItem>
+                      {filteredVoices.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>{v.name}{v.rating ? ` · ${v.rating}` : ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    disabled={!selectedSampleUrl}
+                    onClick={() => selectedSampleUrl && playSample(selectedSampleUrl)}
+                    title="Play sample"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
             <div>

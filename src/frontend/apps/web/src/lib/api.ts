@@ -61,7 +61,7 @@ export interface AudioCollectionV1 {
 
 export interface ListResponse<T> { items: T[]; totalCount: number }
 
-export interface TtsVoice { id: string; language: string; name: string; emotion?: string }
+export interface TtsVoice { id: string; language: string; name: string; emotion?: string; rating?: string; sampleUrl?: string }
 
 export interface TtsModelV1 {
   key: string;

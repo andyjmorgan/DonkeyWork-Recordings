@@ -1,3 +1,4 @@
+using DonkeyWork.Recordings.Api;
 using DonkeyWork.Recordings.Audio.Api;
 using DonkeyWork.Recordings.Identity.Api;
 using DonkeyWork.Recordings.Mcp.Api;
@@ -7,6 +8,8 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddObservability();
 
 // Trust the reverse-proxy chain (nginx in the web pod → API). Without this
 // Request.Scheme reports "http" inside the cluster and AuthController builds

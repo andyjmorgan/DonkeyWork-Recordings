@@ -35,6 +35,7 @@ export interface TtsRecordingV1 {
   chapterTitle?: string;
   status: 'Pending' | 'Generating' | 'Ready' | 'Failed';
   progress: number;
+  statusDetail?: string;
   errorMessage?: string;
   createdAt: string;
   updatedAt?: string;

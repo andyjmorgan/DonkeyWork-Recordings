@@ -90,6 +90,10 @@ public class TtsRecordingConfiguration : IEntityTypeConfiguration<TtsRecordingEn
             .HasColumnName("progress")
             .IsRequired();
 
+        builder.Property(e => e.StatusDetail)
+            .HasColumnName("status_detail")
+            .HasMaxLength(200);
+
         builder.Property(e => e.ErrorMessage)
             .HasColumnName("error_message");
 

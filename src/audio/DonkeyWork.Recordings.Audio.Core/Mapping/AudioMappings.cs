@@ -24,6 +24,7 @@ internal static class AudioMappings
         ChapterTitle = entity.ChapterTitle,
         Status = entity.Status.ToString(),
         Progress = entity.Progress,
+        StatusDetail = entity.StatusDetail,
         ErrorMessage = entity.ErrorMessage,
         CreatedAt = entity.CreatedAt,
         UpdatedAt = entity.UpdatedAt,

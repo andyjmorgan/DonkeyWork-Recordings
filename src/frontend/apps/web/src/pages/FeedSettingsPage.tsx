@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Rss, Copy, Check, Save } from 'lucide-react';
+import { Rss, Copy, Check, Save, Podcast } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,9 +62,16 @@ export function FeedSettingsPage() {
         <div className="font-mono text-xs break-all p-3 rounded-lg border border-border bg-muted/50">
           {loaded.masterFeedUrl}
         </div>
-        <Button onClick={copyFeed} variant="outline" size="sm">
-          {copied ? <><Check className="h-4 w-4 mr-2" />Copied</> : <><Copy className="h-4 w-4 mr-2" />Copy URL</>}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={copyFeed} variant="outline" size="sm">
+            {copied ? <><Check className="h-4 w-4 mr-2" />Copied</> : <><Copy className="h-4 w-4 mr-2" />Copy URL</>}
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <a href={loaded.masterFeedUrl.replace(/^https?:\/\//, 'podcast://')}>
+              <Podcast className="h-4 w-4 mr-2" />Apple Podcasts
+            </a>
+          </Button>
+        </div>
       </section>
 
       <form onSubmit={handleSave} className="rounded-2xl border border-border bg-card p-6 space-y-5">

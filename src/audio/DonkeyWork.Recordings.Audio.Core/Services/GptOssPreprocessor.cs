@@ -18,7 +18,7 @@ public sealed class GptOssPreprocessor : IGptOssPreprocessor
         Tone for this channel: {TONE}.
 
         Rules:
-        - Output ONLY valid JSON: {"paragraphs": [string, string, ...]}.
+        - Return an ordered list of spoken paragraphs (the response schema enforces the shape).
         - One paragraph per natural breath-pause unit (typically 1-4 sentences).
         - Convey pacing and emphasis using ordinary punctuation only — commas, periods, question
           marks, dashes, and ellipses. The voice renders pauses from punctuation and paragraph breaks.
@@ -27,6 +27,22 @@ public sealed class GptOssPreprocessor : IGptOssPreprocessor
           them aloud verbatim.
         - Strip URLs, headers, code blocks, table syntax, and anything else that would not sound natural read aloud.
         - Preserve the meaning and order of the source material.
+        """;
+
+    // Strict structured-output schema — the model is forced to return exactly this shape.
+    private const string ParagraphsSchema = """
+        {
+          "type": "object",
+          "properties": {
+            "paragraphs": {
+              "type": "array",
+              "description": "The rewritten spoken paragraphs, in order.",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["paragraphs"],
+          "additionalProperties": false
+        }
         """;
 
     private readonly ChatClient _chatClient;
@@ -66,7 +82,10 @@ public sealed class GptOssPreprocessor : IGptOssPreprocessor
         {
             Temperature = (float)_options.Temperature,
             MaxOutputTokenCount = _options.MaxTokens,
-            ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
+            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                "tts_paragraphs",
+                BinaryData.FromString(ParagraphsSchema),
+                jsonSchemaIsStrict: true),
         };
 
         var completion = await _chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);

@@ -90,7 +90,9 @@ export function AudioPlayer({ recording, className, actions }: { recording: TtsR
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">{recording.chapterTitle || recording.name}</div>
           <div className="text-xs text-muted-foreground tabular-nums">
-            {recording.status === 'Ready' ? `${fmt(position)} / ${fmt(duration)}` : recording.status}
+            {recording.status === 'Ready'
+              ? `${fmt(position)} / ${fmt(duration)}`
+              : (recording.statusDetail ?? recording.status)}
           </div>
         </div>
         {actions && <div className="-mr-1 -mt-1 shrink-0">{actions}</div>}
@@ -100,7 +102,7 @@ export function AudioPlayer({ recording, className, actions }: { recording: TtsR
         type="range"
         min={0}
         max={100}
-        value={pct}
+        value={isReady ? pct : Math.round((recording.progress ?? 0) * 100)}
         onChange={onScrub}
         disabled={!isReady}
         className="w-full accent-primary"

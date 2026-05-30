@@ -36,6 +36,8 @@ public sealed class TtsRecordingV1
 
     public required double Progress { get; init; }
 
+    public string? StatusDetail { get; init; }
+
     public string? ErrorMessage { get; init; }
 
     public required DateTimeOffset CreatedAt { get; init; }

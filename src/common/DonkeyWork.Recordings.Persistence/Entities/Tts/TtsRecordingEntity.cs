@@ -34,6 +34,8 @@ public class TtsRecordingEntity : BaseEntity
 
     public double Progress { get; set; }
 
+    public string? StatusDetail { get; set; }
+
     public string? ErrorMessage { get; set; }
 
     public TtsAudioCollectionEntity? Collection { get; set; }

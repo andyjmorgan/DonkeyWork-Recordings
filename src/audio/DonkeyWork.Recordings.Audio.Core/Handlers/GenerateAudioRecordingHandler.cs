@@ -41,7 +41,8 @@ public static class GenerateAudioRecordingHandler
         try
         {
             recording.Status = TtsRecordingStatus.Generating;
-            recording.Progress = 0.0;
+            recording.Progress = 0.05;
+            recording.StatusDetail = "Preparing the script…";
             await dbContext.SaveChangesAsync(cancellationToken);
 
             var channelTone = recording.CollectionId is null
@@ -93,11 +94,23 @@ public static class GenerateAudioRecordingHandler
                     new TtsProviderRequest(command.Voice, command.Language),
                     cancellationToken);
                 wavBytes[index] = clip.Audio;
+
+                recording.Progress = 0.1 + 0.8 * ((index + 1.0) / chunks.Count);
+                recording.StatusDetail = $"Generating audio — segment {index + 1} of {chunks.Count}";
+                await dbContext.SaveChangesAsync(cancellationToken);
             }
+
+            recording.Progress = 0.92;
+            recording.StatusDetail = "Stitching & encoding…";
+            await dbContext.SaveChangesAsync(cancellationToken);
 
             var stitchedWav = AudioConverter.ConcatWav(wavBytes);
             var mp3Bytes = AudioConverter.WavToMp3(stitchedWav);
             var duration = AudioConverter.ProbeDurationSeconds(mp3Bytes);
+
+            recording.Progress = 0.97;
+            recording.StatusDetail = "Uploading…";
+            await dbContext.SaveChangesAsync(cancellationToken);
 
             await using var uploadStream = new MemoryStream(mp3Bytes);
             var uploadResult = await storage.UploadAsync(
@@ -124,6 +137,7 @@ public static class GenerateAudioRecordingHandler
             recording.ProcessedTranscript = string.Join("\n\n", paragraphs);
             recording.Status = TtsRecordingStatus.Ready;
             recording.Progress = 1.0;
+            recording.StatusDetail = null;
             recording.ErrorMessage = null;
 
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -140,6 +154,7 @@ public static class GenerateAudioRecordingHandler
             {
                 recording.Status = TtsRecordingStatus.Failed;
                 recording.Progress = 0.0;
+                recording.StatusDetail = null;
                 recording.ErrorMessage = ex.Message;
                 await dbContext.SaveChangesAsync(CancellationToken.None);
             }

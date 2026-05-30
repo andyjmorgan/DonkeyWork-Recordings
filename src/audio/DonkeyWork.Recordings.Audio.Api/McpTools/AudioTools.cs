@@ -104,7 +104,9 @@ public class AudioTools
     [McpServerTool(Name = "get_audio_recording", Title = "Get Audio Recording", ReadOnly = true)]
     [Description(
         "Get a single audio recording by ID. Returns full metadata: Status (Pending/Generating/Ready/Failed), " +
-        "Progress (0-1), FilePath (public mp3 URL when Ready), DurationSeconds, transcript, etc.")]
+        "Progress (0-1) and StatusDetail (a human-readable stage like 'Preparing the script…' or " +
+        "'Generating audio — segment 3 of 9') for live progress while Generating, FilePath (public mp3 URL " +
+        "when Ready), DurationSeconds, transcript, etc.")]
     public Task<TtsRecordingV1?> GetAudioRecording(
         [Description("The recording id.")] Guid recordingId,
         CancellationToken cancellationToken = default)

@@ -29,16 +29,18 @@ public class AudioTools
 
     [McpServerTool(Name = "create_audio_recording", Title = "Create Audio Recording")]
     [Description(
-        "Submit text to be synthesised into a podcast-style audio recording. Returns the recording immediately " +
-        "with Status=Pending — the id is the job id. The TTS pipeline (gpt-oss preprocessing + TTS synthesis " +
-        "+ ffmpeg stitch + S3 upload) runs in the background. Poll get_audio_recording until Status is Ready or Failed.")]
+        "Submit text to be synthesised into a podcast-style audio recording in a channel. Every recording belongs to a " +
+        "channel (collectionId is REQUIRED) — create one first with create_audio_collection if needed. Voice/model/" +
+        "language come from the channel by default and are optional to override. Returns the recording immediately with " +
+        "Status=Pending — the id is the job id. The TTS pipeline runs in the background; poll get_audio_recording until " +
+        "Status is Ready or Failed.")]
     public async Task<TtsRecordingV1?> CreateAudioRecording(
         [Description("The text to synthesize. Markdown is fine; the preprocessor strips it.")] string text,
         [Description("Display name for the recording (shown in the UI and used in the RSS title fallback).")] string name,
-        [Description("Optional channel (collection) id to file the recording under. Tone is inherited from the channel.")] Guid? collectionId = null,
-        [Description("Optional TTS model key from list_tts_models (e.g. 'kokoro', 'chatterbox'). Defaults to the channel's DefaultTtsModel or the system default.")] string? ttsModel = null,
-        [Description("Optional voice id from list_tts_models for the chosen model (only models with SupportsVoiceSelection use it). Defaults to the channel's DefaultVoice or the model default.")] string? voice = null,
-        [Description("Optional BCP-47 language code, e.g. en-US. Defaults to the channel's DefaultLanguage or en-US.")] string? language = null,
+        [Description("REQUIRED. The channel (collection) id this recording belongs to. Tone and the default voice/model are inherited from the channel.")] Guid collectionId,
+        [Description("Optional override of the channel's TTS model — a key from list_tts_models (e.g. 'kokoro', 'chatterbox'). Omit to use the channel default.")] string? ttsModel = null,
+        [Description("Optional override of the channel's voice — a voice id from list_tts_models for the chosen model (only models with SupportsVoiceSelection use it). Omit to use the channel default.")] string? voice = null,
+        [Description("Optional override of the channel's language (BCP-47, e.g. en-US). Omit to use the channel default.")] string? language = null,
         [Description("Optional 1-based position within the channel. Auto-assigned (max + 1) if omitted.")] int? sequenceNumber = null,
         [Description("Optional chapter-style title within the channel (falls back to Name in the UI).")] string? chapterTitle = null,
         [Description("Optional description / show-notes.")] string? description = null,
@@ -143,10 +145,10 @@ public class AudioTools
     }
 
     [McpServerTool(Name = "move_audio_recording", Title = "Move Audio Recording")]
-    [Description("Move a recording to a different channel, or unfile it. Pass collectionId=null to unfile.")]
+    [Description("Move a recording to a different channel. A recording always belongs to a channel, so a target channel is required.")]
     public Task<TtsRecordingV1?> MoveAudioRecording(
         [Description("The recording id.")] Guid recordingId,
-        [Description("Target channel id, or null to unfile.")] Guid? collectionId = null,
+        [Description("REQUIRED. The target channel id to move the recording into.")] Guid collectionId,
         [Description("Optional 1-based sequence number within the target channel. Auto-assigned if omitted.")] int? sequenceNumber = null,
         [Description("Optional chapter title within the target channel.")] string? chapterTitle = null,
         CancellationToken cancellationToken = default)

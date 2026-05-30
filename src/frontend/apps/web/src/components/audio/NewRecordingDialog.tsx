@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  collectionId?: string;
+  collectionId: string;
   defaultTtsModel?: string;
   defaultVoice?: string;
   defaultLanguage?: string;
@@ -155,6 +155,10 @@ export function NewRecordingDialog({ open, onOpenChange, collectionId, defaultTt
                 <Input id="language" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="en-US" />
               </div>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              Model, voice, and language default to this channel's settings — leave them on “Inherit” unless you want to override them for just this recording.
+            </p>
 
             {supportsVoice && (
               <div className="space-y-2">

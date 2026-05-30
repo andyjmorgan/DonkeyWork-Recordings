@@ -75,11 +75,11 @@ export interface TtsModelV1 {
 export interface StartAudioGenerationRequest {
   text: string;
   name: string;
+  collectionId: string;
   description?: string;
   ttsModel?: string;
   voice?: string;
   language?: string;
-  collectionId?: string;
   sequenceNumber?: number;
   chapterTitle?: string;
 }
@@ -102,7 +102,7 @@ export interface CreateAudioCollectionRequest {
 export type UpdateAudioCollectionRequest = Partial<CreateAudioCollectionRequest>;
 
 export interface MoveRecordingRequest {
-  collectionId?: string | null;
+  collectionId: string;
   sequenceNumber?: number;
   chapterTitle?: string;
 }

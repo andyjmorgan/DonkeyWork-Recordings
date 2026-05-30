@@ -21,7 +21,18 @@ public class AudioGenerationServiceTests : IClassFixture<RecordingsTestFixture>
     public async Task StartGeneration_Inserts_Pending_Recording_And_Returns_Id()
     {
         var userId = Guid.NewGuid();
+        Guid collectionId;
         Guid recordingId;
+
+        await using (var setupScope = _fixture.Factory.Services.CreateAsyncScope())
+        {
+            setupScope.ServiceProvider.GetRequiredService<IdentityContext>().SetIdentity(userId);
+            var db = setupScope.ServiceProvider.GetRequiredService<RecordingsDbContext>();
+            var collection = new TtsAudioCollectionEntity { UserId = userId, Name = "Smoke channel", Description = "" };
+            db.Collections.Add(collection);
+            await db.SaveChangesAsync();
+            collectionId = collection.Id;
+        }
 
         await using (var scope = _fixture.Factory.Services.CreateAsyncScope())
         {
@@ -33,7 +44,8 @@ public class AudioGenerationServiceTests : IClassFixture<RecordingsTestFixture>
                 Text = "Hello world, this is a generation request that should land as a Pending recording.",
                 Name = "Smoke test recording",
                 Description = "Inserted by AudioGenerationServiceTests",
-                Voice = "Magpie-Multilingual.EN-US.Aria",
+                CollectionId = collectionId,
+                Voice = "af_heart",
                 Language = "en-US",
             });
         }
@@ -49,10 +61,28 @@ public class AudioGenerationServiceTests : IClassFixture<RecordingsTestFixture>
             Assert.Equal(TtsRecordingStatus.Pending, recording.Status);
             Assert.Equal(0, recording.Progress);
             Assert.Equal("Smoke test recording", recording.Name);
-            Assert.Equal("Magpie-Multilingual.EN-US.Aria", recording.Voice);
+            Assert.Equal(collectionId, recording.CollectionId);
+            Assert.Equal("af_heart", recording.Voice);
             Assert.Equal("en-US", recording.Language);
             Assert.Contains("Hello world", recording.Transcript);
         }
+    }
+
+    [Fact]
+    public async Task StartGeneration_Without_Collection_Throws()
+    {
+        var userId = Guid.NewGuid();
+
+        await using var scope = _fixture.Factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<IdentityContext>().SetIdentity(userId);
+        var service = scope.ServiceProvider.GetRequiredService<IAudioGenerationService>();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.StartGenerationAsync(new StartAudioGenerationRequestV1
+        {
+            Text = "A recording with no channel must be rejected.",
+            Name = "No channel",
+            CollectionId = Guid.Empty,
+        }));
     }
 
     [Fact]

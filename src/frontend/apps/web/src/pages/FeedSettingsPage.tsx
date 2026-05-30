@@ -68,7 +68,7 @@ export function FeedSettingsPage() {
           </Button>
           <Button asChild variant="outline" size="sm">
             <a href={loaded.masterFeedUrl.replace(/^https?:\/\//, 'podcast://')}>
-              <Podcast className="h-4 w-4 mr-2" />Apple Podcasts
+              <Podcast className="h-4 w-4 mr-2 text-[#9933CC]" />Apple Podcasts
             </a>
           </Button>
         </div>

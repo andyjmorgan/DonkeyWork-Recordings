@@ -101,7 +101,7 @@ export function ChannelDetailPage() {
           {podcastUrl && (
             <Button asChild variant="outline" size="sm" title="Add to Apple Podcasts">
               <a href={podcastUrl}>
-                <Podcast className="h-4 w-4 sm:mr-2" />
+                <Podcast className="h-4 w-4 text-[#9933CC] sm:mr-2" />
                 <span className="hidden sm:inline">Apple Podcasts</span>
               </a>
             </Button>

@@ -43,4 +43,12 @@ public class FeedController : ControllerBase
         var text = await _feedService.GetTranscriptTextAsync(userId, recordingId, cancellationToken);
         return text is null ? NotFound() : Content(text, "text/plain; charset=utf-8");
     }
+
+    [HttpGet("{userId:guid}/{recordingId:guid}.vtt")]
+    [Produces("text/vtt")]
+    public async Task<IActionResult> GetTranscriptVtt(Guid userId, Guid recordingId, CancellationToken cancellationToken)
+    {
+        var vtt = await _feedService.GetTranscriptVttAsync(userId, recordingId, cancellationToken);
+        return vtt is null ? NotFound() : Content(vtt, "text/vtt; charset=utf-8");
+    }
 }

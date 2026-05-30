@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using DonkeyWork.Recordings.Audio.Contracts.Services;
 using DonkeyWork.Recordings.Audio.Core.Feed;
 using DonkeyWork.Recordings.Audio.Core.Options;
@@ -76,6 +79,18 @@ public sealed class FeedService : IFeedService
 
     public async Task<string?> GetTranscriptTextAsync(Guid userId, Guid recordingId, CancellationToken cancellationToken = default)
     {
+        var loaded = await LoadTranscriptAsync(userId, recordingId, cancellationToken);
+        return loaded?.Text;
+    }
+
+    public async Task<string?> GetTranscriptVttAsync(Guid userId, Guid recordingId, CancellationToken cancellationToken = default)
+    {
+        var loaded = await LoadTranscriptAsync(userId, recordingId, cancellationToken);
+        return loaded is null ? null : BuildVtt(loaded.Value.Text, loaded.Value.Duration);
+    }
+
+    private async Task<(string Text, double Duration)?> LoadTranscriptAsync(Guid userId, Guid recordingId, CancellationToken cancellationToken)
+    {
         var recording = await _dbContext.Recordings
             .IgnoreQueryFilters()
             .AsNoTracking()
@@ -91,7 +106,46 @@ public sealed class FeedService : IFeedService
             ? recording.ProcessedTranscript
             : recording.Transcript;
 
-        return string.IsNullOrWhiteSpace(text) ? null : text;
+        return string.IsNullOrWhiteSpace(text) ? null : (text, recording.DurationSeconds);
+    }
+
+    // Apple Podcasts only renders VTT/SRT transcripts (not text/plain). We don't capture per-cue
+    // timings yet, so spread cues across the episode duration proportionally to their length — an
+    // approximation that's close enough for synced highlighting at a roughly constant speech rate.
+    private static string BuildVtt(string text, double durationSeconds)
+    {
+        var cues = Regex.Split(text.Trim(), @"(?<=[.!?])\s+")
+            .Select(s => s.Replace('\n', ' ').Replace('\r', ' ').Trim())
+            .Where(s => s.Length > 0)
+            .ToList();
+
+        if (cues.Count == 0)
+        {
+            return "WEBVTT\n";
+        }
+
+        var totalChars = cues.Sum(c => c.Length);
+        var duration = durationSeconds > 0 ? durationSeconds : Math.Max(1.0, totalChars / 15.0);
+
+        var sb = new StringBuilder("WEBVTT\n\n");
+        double acc = 0;
+        foreach (var cue in cues)
+        {
+            var start = duration * (acc / totalChars);
+            acc += cue.Length;
+            var end = duration * (acc / totalChars);
+            sb.Append(FormatVttTimestamp(start)).Append(" --> ").Append(FormatVttTimestamp(end)).Append('\n');
+            sb.Append(cue).Append("\n\n");
+        }
+
+        return sb.ToString();
+    }
+
+    private static string FormatVttTimestamp(double totalSeconds)
+    {
+        var ts = TimeSpan.FromSeconds(totalSeconds);
+        return string.Format(CultureInfo.InvariantCulture, "{0:D2}:{1:D2}:{2:D2}.{3:D3}",
+            (int)ts.TotalHours, ts.Minutes, ts.Seconds, ts.Milliseconds);
     }
 
     private FeedChannelMetadata ResolveMasterChannelMetadata(Guid userId, UserFeedSettingsEntity? settings, string requestOrigin)

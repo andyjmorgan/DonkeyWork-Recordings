@@ -8,6 +8,8 @@ public sealed class KokoroOptions
 
     public string DefaultVoice { get; set; } = "af_heart";
 
+    public string SamplesBaseUrl { get; set; } = "https://s3.donkeywork.dev/kokoro-samples";
+
     public int SampleRateHz { get; set; } = 24000;
 
     public double Speed { get; set; } = 1.0;

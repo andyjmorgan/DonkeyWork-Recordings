@@ -68,6 +68,8 @@ public class VoicesController : ControllerBase
                             Language = v.Language,
                             Name = v.Name,
                             Emotion = v.Emotion,
+                            Rating = v.Rating,
+                            SampleUrl = v.SampleUrl,
                         })
                         .ToList(),
                 });
@@ -144,6 +146,10 @@ public class VoicesController : ControllerBase
         public required string Name { get; init; }
 
         public string? Emotion { get; init; }
+
+        public string? Rating { get; init; }
+
+        public string? SampleUrl { get; init; }
     }
 
     public sealed class PreviewRequestV1

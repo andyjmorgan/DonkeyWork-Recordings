@@ -8,14 +8,24 @@ namespace DonkeyWork.Recordings.Audio.Core.Services;
 
 public sealed class ChatterboxTtsProvider : ITtsProvider
 {
-    private readonly HttpClient _httpClient;
+    public const string ProviderKey = "chatterbox";
+
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ChatterboxOptions _options;
 
-    public ChatterboxTtsProvider(HttpClient httpClient, IOptions<ChatterboxOptions> options)
+    public ChatterboxTtsProvider(IHttpClientFactory httpClientFactory, IOptions<ChatterboxOptions> options)
     {
-        _httpClient = httpClient;
+        _httpClientFactory = httpClientFactory;
         _options = options.Value;
     }
+
+    public string Key => ProviderKey;
+
+    public string DisplayName => "Chatterbox";
+
+    public bool SupportsVoiceSelection => false;
+
+    public string DefaultVoice => _options.DefaultVoice;
 
     public async Task<TtsClipResult> SynthesizeAsync(string text, TtsProviderRequest request, CancellationToken cancellationToken = default)
     {
@@ -26,7 +36,8 @@ public sealed class ChatterboxTtsProvider : ITtsProvider
             CfgWeight = _options.CfgWeight,
         };
 
-        using var response = await _httpClient.PostAsJsonAsync("v1/audio/speech", payload, cancellationToken);
+        var client = _httpClientFactory.CreateClient(ProviderKey);
+        using var response = await client.PostAsJsonAsync("v1/audio/speech", payload, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var wavBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
@@ -42,7 +53,7 @@ public sealed class ChatterboxTtsProvider : ITtsProvider
     {
         IReadOnlyList<TtsVoice> voices =
         [
-            new TtsVoice("default", _options.DefaultLanguage, "Default", null),
+            new TtsVoice(_options.DefaultVoice, _options.DefaultLanguage, "Default", null),
         ];
 
         return Task.FromResult(voices);

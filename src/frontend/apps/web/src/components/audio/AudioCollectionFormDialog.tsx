@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { collections, voices, type AudioCollectionV1, type TtsVoice } from '@/lib/api';
+import { collections, voices, type AudioCollectionV1, type TtsModelV1 } from '@/lib/api';
 import { toast } from 'sonner';
 
 interface Props {
@@ -28,12 +28,13 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tone, setTone] = useState('');
+  const [defaultTtsModel, setDefaultTtsModel] = useState('');
   const [defaultVoice, setDefaultVoice] = useState('');
   const [defaultLanguage, setDefaultLanguage] = useState('en-US');
   const [submitting, setSubmitting] = useState(false);
 
-  const [voiceList, setVoiceList] = useState<TtsVoice[] | null>(null);
-  const [voicesError, setVoicesError] = useState(false);
+  const [models, setModels] = useState<TtsModelV1[] | null>(null);
+  const [modelsError, setModelsError] = useState(false);
   const [testing, setTesting] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
@@ -43,56 +44,65 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
       setName(editing?.name ?? '');
       setDescription(editing?.description ?? '');
       setTone(editing?.tone ?? '');
+      setDefaultTtsModel(editing?.defaultTtsModel ?? '');
       setDefaultVoice(editing?.defaultVoice ?? '');
       setDefaultLanguage(editing?.defaultLanguage ?? 'en-US');
     }
   }, [open, editing]);
 
   useEffect(() => {
-    if (!open || voiceList || voicesError) return;
-    voices.list()
-      .then((list) => setVoiceList(list))
-      .catch(() => setVoicesError(true));
-  }, [open, voiceList, voicesError]);
+    if (!open || models || modelsError) return;
+    voices.models()
+      .then((m) => setModels(m))
+      .catch(() => setModelsError(true));
+  }, [open, models, modelsError]);
 
   useEffect(() => () => {
     if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
   }, []);
 
+  // "Inherit" resolves to the system default model for the purposes of the voice picker.
+  const effectiveModelKey = defaultTtsModel || models?.find((m) => m.isDefault)?.key;
+  const selectedModel = models?.find((m) => m.key === effectiveModelKey) ?? null;
+  const supportsVoice = selectedModel?.supportsVoiceSelection ?? false;
+
   const languages = useMemo(() => {
     const set = new Set<string>();
-    (voiceList ?? []).forEach((v) => set.add(v.language));
+    (selectedModel?.voices ?? []).forEach((v) => set.add(v.language));
     if (defaultLanguage) set.add(defaultLanguage);
     return [...set].sort();
-  }, [voiceList, defaultLanguage]);
+  }, [selectedModel, defaultLanguage]);
 
-  // Magpie reports each base voice plus one entry per emotion preset
-  // (Mia, Mia.Neutral, Mia.Calm, Mia.Angry, …). Hide the emotion variants
-  // from the dropdown — they balloon the list and aren't useful as the
-  // channel default.
+  // Hide emotion variants and scope to the picked language — keeps the dropdown usable.
   const filteredVoices = useMemo(
-    () => (voiceList ?? []).filter(
+    () => (selectedModel?.voices ?? []).filter(
       (v) => !v.emotion && (!defaultLanguage || v.language === defaultLanguage),
     ),
-    [voiceList, defaultLanguage],
+    [selectedModel, defaultLanguage],
   );
+
+  const handleModelChange = (value: string) => {
+    setDefaultTtsModel(value === INHERIT_VALUE ? '' : value);
+    setDefaultVoice('');
+  };
 
   const handleLanguageChange = (value: string) => {
     setDefaultLanguage(value);
-    if (defaultVoice && voiceList && !voiceList.some((v) => v.id === defaultVoice && v.language === value)) {
+    if (defaultVoice && selectedModel && !selectedModel.voices.some((v) => v.id === defaultVoice && v.language === value)) {
       setDefaultVoice('');
     }
   };
 
   const handleTest = async () => {
-    if (!defaultVoice) {
+    if (supportsVoice && !defaultVoice) {
       toast.error('Pick a voice to preview.');
       return;
     }
     setTesting(true);
     try {
       const blob = await voices.preview({
-        voice: defaultVoice,
+        model: effectiveModelKey,
+        voice: defaultVoice || selectedModel?.defaultVoice || '',
         language: defaultLanguage || 'en-US',
         tone: tone.trim() || undefined,
       });
@@ -124,6 +134,7 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
         name: name.trim(),
         description: description.trim(),
         tone: tone.trim() || undefined,
+        defaultTtsModel: defaultTtsModel || undefined,
         defaultVoice: defaultVoice.trim() || undefined,
         defaultLanguage: defaultLanguage.trim() || undefined,
       };
@@ -139,6 +150,8 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
       setSubmitting(false);
     }
   };
+
+  const modelsReady = models !== null || modelsError;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -175,10 +188,28 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
+                <Label htmlFor="defaultModel">Default model</Label>
+                <Select
+                  value={defaultTtsModel || INHERIT_VALUE}
+                  onValueChange={handleModelChange}
+                  disabled={!modelsReady}
+                >
+                  <SelectTrigger id="defaultModel">
+                    <SelectValue placeholder={models ? 'Inherit system default' : 'Loading…'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={INHERIT_VALUE}>Inherit system default</SelectItem>
+                    {(models ?? []).map((m) => (
+                      <SelectItem key={m.key} value={m.key}>{m.displayName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="defaultLanguage">Default language</Label>
-                <Select value={defaultLanguage || 'en-US'} onValueChange={handleLanguageChange} disabled={!voiceList && !voicesError}>
+                <Select value={defaultLanguage || 'en-US'} onValueChange={handleLanguageChange} disabled={!modelsReady}>
                   <SelectTrigger id="defaultLanguage">
-                    <SelectValue placeholder={voiceList ? 'Pick a language' : 'Loading…'} />
+                    <SelectValue placeholder={models ? 'Pick a language' : 'Loading…'} />
                   </SelectTrigger>
                   <SelectContent>
                     {languages.map((lang) => (
@@ -187,38 +218,40 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            {supportsVoice && (
               <div className="space-y-2">
                 <Label htmlFor="defaultVoice">Default voice</Label>
                 <Select
                   value={defaultVoice || INHERIT_VALUE}
                   onValueChange={(v) => setDefaultVoice(v === INHERIT_VALUE ? '' : v)}
-                  disabled={!voiceList && !voicesError}
+                  disabled={!modelsReady}
                 >
                   <SelectTrigger id="defaultVoice">
-                    <SelectValue placeholder={voiceList ? 'Inherit system default' : 'Loading…'} />
+                    <SelectValue placeholder={models ? 'Inherit model default' : 'Loading…'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={INHERIT_VALUE}>Inherit system default</SelectItem>
+                    <SelectItem value={INHERIT_VALUE}>Inherit model default</SelectItem>
                     {filteredVoices.map((v) => (
                       <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+            )}
             <div>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleTest}
-                disabled={testing || !defaultVoice}
+                disabled={testing || !modelsReady || (supportsVoice && !defaultVoice)}
               >
                 {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Volume2 className="h-4 w-4 mr-2" />}
                 {testing ? 'Synthesising…' : 'Test voice + tone'}
               </Button>
               <p className="mt-2 text-xs text-muted-foreground">
-                Synthesises "testing, one, two, three" with the current voice and pipes it through gpt-oss using the tone above.
+                Synthesises "testing, one, two, three" with the current model/voice and pipes it through gpt-oss using the tone above.
               </p>
             </div>
           </div>

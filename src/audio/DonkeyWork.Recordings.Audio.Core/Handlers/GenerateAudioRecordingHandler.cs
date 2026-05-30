@@ -22,9 +22,8 @@ public static class GenerateAudioRecordingHandler
         IGptOssPreprocessor preprocessor,
         ISsmlPreprocessor ssml,
         ITtsChunker chunker,
-        ITtsProvider ttsProvider,
+        ITtsProviderRegistry ttsRegistry,
         IStorageService storage,
-        IOptions<ChatterboxOptions> ttsOptions,
         ILogger<GenerateAudioRecordingCommand> logger,
         CancellationToken cancellationToken)
     {
@@ -81,17 +80,17 @@ public static class GenerateAudioRecordingHandler
                 "Generating audio for recording {RecordingId}: {ParagraphCount} paragraphs → {ChunkCount} chunks",
                 recording.Id, paragraphs.Count, chunks.Count);
 
-            var sampleRate = ttsOptions.Value.SampleRateHz;
+            var ttsProvider = ttsRegistry.Resolve(command.TtsModel);
             var wavBytes = new byte[chunks.Count][];
 
-            // Chatterbox serialises on a single GPU instance — concurrent requests just queue —
+            // The TTS backends serialise on a single instance — concurrent requests just queue —
             // so synthesise the chunks one at a time in order.
             for (var index = 0; index < chunks.Count; index++)
             {
                 var wrapped = ssml.Wrap(chunks[index]);
                 var clip = await ttsProvider.SynthesizeAsync(
                     wrapped,
-                    new TtsProviderRequest(command.Voice, command.Language, sampleRate),
+                    new TtsProviderRequest(command.Voice, command.Language),
                     cancellationToken);
                 wavBytes[index] = clip.Audio;
             }

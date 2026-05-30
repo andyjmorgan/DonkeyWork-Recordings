@@ -48,6 +48,12 @@ public class TtsRecordingConfiguration : IEntityTypeConfiguration<TtsRecordingEn
             .IsRequired()
             .HasMaxLength(100);
 
+        builder.Property(e => e.TtsModel)
+            .HasColumnName("tts_model")
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue("chatterbox");
+
         builder.Property(e => e.SizeBytes)
             .HasColumnName("size_bytes")
             .IsRequired();

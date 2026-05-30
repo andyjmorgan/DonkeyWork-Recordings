@@ -8,6 +8,8 @@ public sealed class StartAudioGenerationRequestV1
 
     public string? Description { get; init; }
 
+    public string? TtsModel { get; init; }
+
     public string? Voice { get; init; }
 
     public string? Language { get; init; }

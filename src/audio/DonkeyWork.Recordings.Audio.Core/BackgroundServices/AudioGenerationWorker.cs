@@ -59,9 +59,8 @@ public sealed class AudioGenerationWorker : BackgroundService
             services.GetRequiredService<IGptOssPreprocessor>(),
             services.GetRequiredService<ISsmlPreprocessor>(),
             services.GetRequiredService<ITtsChunker>(),
-            services.GetRequiredService<ITtsProvider>(),
+            services.GetRequiredService<ITtsProviderRegistry>(),
             services.GetRequiredService<IStorageService>(),
-            services.GetRequiredService<IOptions<ChatterboxOptions>>(),
             services.GetRequiredService<ILogger<GenerateAudioRecordingCommand>>(),
             cancellationToken);
     }

@@ -24,6 +24,7 @@ export interface TtsRecordingV1 {
   filePath: string;
   transcript: string;
   processedTranscript: string;
+  ttsModel: string;
   contentType: string;
   sizeBytes: number;
   durationSeconds: number;
@@ -44,6 +45,7 @@ export interface AudioCollectionV1 {
   name: string;
   description: string;
   coverImagePath?: string;
+  defaultTtsModel?: string;
   defaultVoice?: string;
   defaultLanguage?: string;
   tone?: string;
@@ -61,10 +63,20 @@ export interface ListResponse<T> { items: T[]; totalCount: number }
 
 export interface TtsVoice { id: string; language: string; name: string; emotion?: string }
 
+export interface TtsModelV1 {
+  key: string;
+  displayName: string;
+  supportsVoiceSelection: boolean;
+  defaultVoice: string;
+  isDefault: boolean;
+  voices: TtsVoice[];
+}
+
 export interface StartAudioGenerationRequest {
   text: string;
   name: string;
   description?: string;
+  ttsModel?: string;
   voice?: string;
   language?: string;
   collectionId?: string;
@@ -76,6 +88,7 @@ export interface CreateAudioCollectionRequest {
   name: string;
   description?: string;
   coverImagePath?: string;
+  defaultTtsModel?: string;
   defaultVoice?: string;
   defaultLanguage?: string;
   tone?: string;
@@ -142,8 +155,8 @@ export const collections = {
 };
 
 export const voices = {
-  list: () => json<TtsVoice[]>('/api/v1/voices'),
-  preview: async (req: { voice: string; language: string; tone?: string }): Promise<Blob> => {
+  models: () => json<TtsModelV1[]>('/api/v1/voices/models'),
+  preview: async (req: { model?: string; voice: string; language: string; tone?: string }): Promise<Blob> => {
     const res = await fetchWithAuth('/api/v1/voices/preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

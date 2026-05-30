@@ -73,6 +73,7 @@ public sealed class AudioCollectionService : IAudioCollectionService
             Name = request.Name,
             Description = request.Description ?? string.Empty,
             CoverImagePath = request.CoverImagePath,
+            DefaultTtsModel = request.DefaultTtsModel,
             DefaultVoice = request.DefaultVoice,
             DefaultLanguage = request.DefaultLanguage,
             Tone = request.Tone,
@@ -99,6 +100,7 @@ public sealed class AudioCollectionService : IAudioCollectionService
         if (request.Name is not null) entity.Name = request.Name;
         if (request.Description is not null) entity.Description = request.Description;
         if (request.CoverImagePath is not null) entity.CoverImagePath = request.CoverImagePath;
+        if (request.DefaultTtsModel is not null) entity.DefaultTtsModel = request.DefaultTtsModel;
         if (request.DefaultVoice is not null) entity.DefaultVoice = request.DefaultVoice;
         if (request.DefaultLanguage is not null) entity.DefaultLanguage = request.DefaultLanguage;
         if (request.Tone is not null) entity.Tone = request.Tone;

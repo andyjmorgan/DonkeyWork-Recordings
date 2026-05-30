@@ -15,17 +15,20 @@ public sealed class AudioGenerationService : IAudioGenerationService
     private readonly RecordingsDbContext _dbContext;
     private readonly IIdentityContext _identityContext;
     private readonly IAudioGenerationDispatcher _dispatcher;
-    private readonly ChatterboxOptions _ttsOptions;
+    private readonly ITtsProviderRegistry _ttsRegistry;
+    private readonly TtsOptions _ttsOptions;
 
     public AudioGenerationService(
         RecordingsDbContext dbContext,
         IIdentityContext identityContext,
         IAudioGenerationDispatcher dispatcher,
-        IOptions<ChatterboxOptions> ttsOptions)
+        ITtsProviderRegistry ttsRegistry,
+        IOptions<TtsOptions> ttsOptions)
     {
         _dbContext = dbContext;
         _identityContext = identityContext;
         _dispatcher = dispatcher;
+        _ttsRegistry = ttsRegistry;
         _ttsOptions = ttsOptions.Value;
     }
 
@@ -53,9 +56,15 @@ public sealed class AudioGenerationService : IAudioGenerationService
                 ?? throw new InvalidOperationException($"Collection {collectionId} not found.")
             : null;
 
+        var provider = _ttsRegistry.Resolve(
+            request.TtsModel
+            ?? collection?.DefaultTtsModel
+            ?? _ttsOptions.DefaultModel);
+        var ttsModel = provider.Key;
+
         var voice = request.Voice
             ?? collection?.DefaultVoice
-            ?? _ttsOptions.DefaultVoice;
+            ?? provider.DefaultVoice;
 
         var language = request.Language
             ?? collection?.DefaultLanguage
@@ -73,6 +82,7 @@ public sealed class AudioGenerationService : IAudioGenerationService
             ContentType = "audio/mpeg",
             SizeBytes = 0,
             DurationSeconds = 0,
+            TtsModel = ttsModel,
             Voice = voice,
             Language = language,
             CollectionId = request.CollectionId,
@@ -89,6 +99,7 @@ public sealed class AudioGenerationService : IAudioGenerationService
             RecordingId: recording.Id,
             UserId: userId,
             Text: request.Text,
+            TtsModel: ttsModel,
             Voice: voice,
             Language: language,
             TargetCharCount: request.TargetCharCount,

@@ -5,13 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { recordings, voices, type TtsRecordingV1, type TtsVoice } from '@/lib/api';
+import { recordings, voices, type TtsModelV1, type TtsRecordingV1 } from '@/lib/api';
 import { toast } from 'sonner';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   collectionId?: string;
+  defaultTtsModel?: string;
   defaultVoice?: string;
   defaultLanguage?: string;
   onCreated: (recording: TtsRecordingV1) => void;
@@ -19,40 +20,52 @@ interface Props {
 
 const INHERIT = '__inherit__';
 
-export function NewRecordingDialog({ open, onOpenChange, collectionId, defaultVoice, defaultLanguage, onCreated }: Props) {
+export function NewRecordingDialog({ open, onOpenChange, collectionId, defaultTtsModel, defaultVoice, defaultLanguage, onCreated }: Props) {
   const [name, setName] = useState('');
   const [text, setText] = useState('');
+  const [ttsModel, setTtsModel] = useState<string>(INHERIT);
   const [voice, setVoice] = useState<string>(INHERIT);
   const [language, setLanguage] = useState<string>(defaultLanguage ?? 'en-US');
-  const [voiceList, setVoiceList] = useState<TtsVoice[]>([]);
-  const [voicesLoading, setVoicesLoading] = useState(false);
+  const [models, setModels] = useState<TtsModelV1[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setName('');
     setText('');
+    setTtsModel(INHERIT);
     setVoice(INHERIT);
     setLanguage(defaultLanguage ?? 'en-US');
   }, [open, defaultLanguage]);
 
   useEffect(() => {
-    if (!open || voiceList.length > 0) return;
-    setVoicesLoading(true);
-    voices.list()
-      .then((vs) => setVoiceList(vs))
-      .catch(() => toast.error('Could not load voices'))
-      .finally(() => setVoicesLoading(false));
-  }, [open, voiceList.length]);
+    if (!open || models.length > 0) return;
+    setModelsLoading(true);
+    voices.models()
+      .then((m) => setModels(m))
+      .catch(() => toast.error('Could not load TTS models'))
+      .finally(() => setModelsLoading(false));
+  }, [open, models.length]);
+
+  // When "inherit" is selected, the effective model is the channel default, else the system default.
+  const effectiveModelKey = ttsModel !== INHERIT ? ttsModel : (defaultTtsModel ?? models.find((m) => m.isDefault)?.key);
+  const selectedModel = models.find((m) => m.key === effectiveModelKey);
+  const supportsVoice = selectedModel?.supportsVoiceSelection ?? false;
 
   const grouped = useMemo(() => {
-    const byLang = new Map<string, TtsVoice[]>();
-    for (const v of voiceList) {
+    const byLang = new Map<string, TtsModelV1['voices']>();
+    for (const v of selectedModel?.voices ?? []) {
       if (!byLang.has(v.language)) byLang.set(v.language, []);
       byLang.get(v.language)!.push(v);
     }
     return Array.from(byLang.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [voiceList]);
+  }, [selectedModel]);
+
+  const handleModelChange = (value: string) => {
+    setTtsModel(value);
+    setVoice(INHERIT);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +79,7 @@ export function NewRecordingDialog({ open, onOpenChange, collectionId, defaultVo
         text: text.trim(),
         name: name.trim(),
         collectionId,
+        ttsModel: ttsModel === INHERIT ? undefined : ttsModel,
         voice: voice === INHERIT ? undefined : voice,
         language: language.trim() || undefined,
       });
@@ -86,7 +100,7 @@ export function NewRecordingDialog({ open, onOpenChange, collectionId, defaultVo
           <DialogHeader>
             <DialogTitle>New recording</DialogTitle>
             <DialogDescription>
-              Submitted text goes through gpt-oss (channel tone applied) then Magpie. Status updates by polling once submitted.
+              Submitted text goes through gpt-oss (channel tone applied) then the selected TTS model. Status updates by polling once submitted.
             </DialogDescription>
           </DialogHeader>
 
@@ -104,14 +118,37 @@ export function NewRecordingDialog({ open, onOpenChange, collectionId, defaultVo
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="voice">Voice</Label>
-                <Select value={voice} onValueChange={setVoice}>
-                  <SelectTrigger id="voice">
-                    <SelectValue placeholder={voicesLoading ? 'Loading…' : 'Pick a voice'} />
+                <Label htmlFor="model">Model</Label>
+                <Select value={ttsModel} onValueChange={handleModelChange}>
+                  <SelectTrigger id="model">
+                    <SelectValue placeholder={modelsLoading ? 'Loading…' : 'Pick a model'} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={INHERIT}>
-                      {defaultVoice ? `Inherit channel default (${defaultVoice})` : 'Inherit channel / system default'}
+                      {defaultTtsModel ? `Inherit channel default (${defaultTtsModel})` : 'Inherit channel / system default'}
+                    </SelectItem>
+                    {models.map((m) => (
+                      <SelectItem key={m.key} value={m.key}>{m.displayName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="language">Language</Label>
+                <Input id="language" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="en-US" />
+              </div>
+            </div>
+
+            {supportsVoice && (
+              <div className="space-y-2">
+                <Label htmlFor="voice">Voice</Label>
+                <Select value={voice} onValueChange={setVoice}>
+                  <SelectTrigger id="voice">
+                    <SelectValue placeholder="Pick a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={INHERIT}>
+                      {defaultVoice ? `Inherit channel default (${defaultVoice})` : 'Inherit channel / model default'}
                     </SelectItem>
                     {grouped.map(([lang, items]) => (
                       <SelectGroup key={lang}>
@@ -126,11 +163,7 @@ export function NewRecordingDialog({ open, onOpenChange, collectionId, defaultVo
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="language">Language</Label>
-                <Input id="language" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="en-US" />
-              </div>
-            </div>
+            )}
           </div>
 
           <DialogFooter>

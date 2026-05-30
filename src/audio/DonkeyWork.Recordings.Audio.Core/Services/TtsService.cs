@@ -93,13 +93,15 @@ public sealed class TtsService : ITtsService
             return null;
         }
 
-        if (request.CollectionId is { } targetCollectionId)
+        if (request.CollectionId == Guid.Empty)
         {
-            var exists = await _dbContext.Collections.AnyAsync(c => c.Id == targetCollectionId, cancellationToken);
-            if (!exists)
-            {
-                throw new InvalidOperationException($"Collection {targetCollectionId} not found.");
-            }
+            throw new ArgumentException("A target channel (CollectionId) is required.", nameof(request));
+        }
+
+        var exists = await _dbContext.Collections.AnyAsync(c => c.Id == request.CollectionId, cancellationToken);
+        if (!exists)
+        {
+            throw new InvalidOperationException($"Collection {request.CollectionId} not found.");
         }
 
         recording.CollectionId = request.CollectionId;
@@ -108,16 +110,12 @@ public sealed class TtsService : ITtsService
         {
             recording.SequenceNumber = request.SequenceNumber;
         }
-        else if (request.CollectionId.HasValue)
+        else
         {
             var max = await _dbContext.Recordings
                 .Where(r => r.CollectionId == request.CollectionId && r.Id != recordingId)
                 .MaxAsync(r => (int?)r.SequenceNumber, cancellationToken);
             recording.SequenceNumber = (max ?? 0) + 1;
-        }
-        else
-        {
-            recording.SequenceNumber = null;
         }
 
         if (request.ChapterTitle is not null)

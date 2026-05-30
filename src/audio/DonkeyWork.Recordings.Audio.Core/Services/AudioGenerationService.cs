@@ -49,25 +49,29 @@ public sealed class AudioGenerationService : IAudioGenerationService
             throw new ArgumentException("MaxCharCount must be >= TargetCharCount.", nameof(request));
         }
 
+        if (request.CollectionId == Guid.Empty)
+        {
+            throw new ArgumentException("A channel (CollectionId) is required to create a recording.", nameof(request));
+        }
+
         var userId = _identityContext.UserId;
 
-        var collection = request.CollectionId is { } collectionId
-            ? await _dbContext.Collections.FirstOrDefaultAsync(c => c.Id == collectionId, cancellationToken)
-                ?? throw new InvalidOperationException($"Collection {collectionId} not found.")
-            : null;
+        var collection = await _dbContext.Collections.FirstOrDefaultAsync(c => c.Id == request.CollectionId, cancellationToken)
+            ?? throw new InvalidOperationException($"Collection {request.CollectionId} not found.");
 
+        // Voice/model come from the channel by default; the request can override either.
         var provider = _ttsRegistry.Resolve(
             request.TtsModel
-            ?? collection?.DefaultTtsModel
+            ?? collection.DefaultTtsModel
             ?? _ttsOptions.DefaultModel);
         var ttsModel = provider.Key;
 
         var voice = request.Voice
-            ?? collection?.DefaultVoice
+            ?? collection.DefaultVoice
             ?? provider.DefaultVoice;
 
         var language = request.Language
-            ?? collection?.DefaultLanguage
+            ?? collection.DefaultLanguage
             ?? _ttsOptions.DefaultLanguage;
 
         var sequenceNumber = request.SequenceNumber ?? await NextSequenceNumberAsync(request.CollectionId, cancellationToken);

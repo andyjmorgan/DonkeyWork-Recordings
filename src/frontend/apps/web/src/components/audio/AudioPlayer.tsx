@@ -69,7 +69,7 @@ export function AudioPlayer({ recording, className, actions }: { recording: TtsR
   const pct = duration > 0 ? (position / duration) * 100 : 0;
 
   return (
-    <div className={cn('rounded-2xl border border-border bg-card p-4 space-y-4', className)}>
+    <div data-testid="audio-player" className={cn('rounded-2xl border border-border bg-card p-4 space-y-4', className)}>
       <audio
         ref={audioRef}
         src={isReady ? recording.filePath : undefined}

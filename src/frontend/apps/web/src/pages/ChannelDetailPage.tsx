@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Copy, Check, MoreVertical, Trash2, FolderInput } from 'lucide-react';
+import { ArrowLeft, Plus, Copy, Check, MoreVertical, Trash2, FolderInput, Podcast } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { collections, recordings, type AudioCollectionV1, type TtsRecordingV1 } from '@/lib/api';
@@ -75,6 +75,10 @@ export function ChannelDetailPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (!collection) return <div className="p-8 text-muted-foreground">Channel not found.</div>;
 
+  const feedUrl = userId ? `${window.location.origin}/feeds/${userId}/${collection.id}.xml` : '';
+  // The podcast:// scheme nudges iOS to open the feed in Apple Podcasts (which has no in-app "add by URL").
+  const podcastUrl = feedUrl.replace(/^https?:\/\//, 'podcast://');
+
   return (
     <div className="p-4 sm:p-8 mx-auto max-w-4xl space-y-6">
       <Link to="/channels" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
@@ -93,6 +97,11 @@ export function ChannelDetailPage() {
           <Button onClick={copyFeed} variant="outline" size="sm">
             {copiedFeed ? <><Check className="h-4 w-4 mr-2" />Copied</> : <><Copy className="h-4 w-4 mr-2" />Copy feed URL</>}
           </Button>
+          {podcastUrl && (
+            <Button asChild variant="outline" size="sm">
+              <a href={podcastUrl}><Podcast className="h-4 w-4 mr-2" />Apple Podcasts</a>
+            </Button>
+          )}
           <Button onClick={() => setNewOpen(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" />New recording
           </Button>

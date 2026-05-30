@@ -8,6 +8,7 @@ public static class FeedXmlBuilder
 {
     private static readonly XNamespace Itunes = "http://www.itunes.com/dtds/podcast-1.0.dtd";
     private static readonly XNamespace Atom = "http://www.w3.org/2005/Atom";
+    private static readonly XNamespace Podcast = "https://podcastindex.org/namespace/1.0";
 
     public static string Build(FeedChannelMetadata channel, IReadOnlyList<TtsRecordingEntity> recordings)
     {
@@ -16,6 +17,7 @@ public static class FeedXmlBuilder
             new XAttribute("version", "2.0"),
             new XAttribute(XNamespace.Xmlns + "itunes", Itunes.NamespaceName),
             new XAttribute(XNamespace.Xmlns + "atom", Atom.NamespaceName),
+            new XAttribute(XNamespace.Xmlns + "podcast", Podcast.NamespaceName),
             new XElement(
                 "channel",
                 BuildChannelHeader(channel),
@@ -31,6 +33,9 @@ public static class FeedXmlBuilder
         yield return new XElement("link", channel.HomepageLink ?? channel.SelfUrl);
         yield return new XElement("description", channel.Description);
         yield return new XElement("language", channel.Language);
+        yield return new XElement("generator", "DonkeyWork Recordings");
+        yield return new XElement("lastBuildDate", DateTimeOffset.UtcNow.ToString("R", CultureInfo.InvariantCulture));
+        yield return new XElement(Itunes + "type", "episodic");
         yield return new XElement(Atom + "link",
             new XAttribute("href", channel.SelfUrl),
             new XAttribute("rel", "self"),
@@ -87,11 +92,20 @@ public static class FeedXmlBuilder
             new XElement(Itunes + "title", title),
             new XElement(Itunes + "duration", duration),
             new XElement(Itunes + "summary", description),
+            new XElement(Itunes + "episodeType", "full"),
             new XElement(Itunes + "explicit", channel.IsExplicit ? "true" : "false"));
 
         if (r.SequenceNumber.HasValue)
         {
             item.Add(new XElement(Itunes + "episode", r.SequenceNumber.Value));
+        }
+
+        if (!string.IsNullOrWhiteSpace(r.ProcessedTranscript) || !string.IsNullOrWhiteSpace(r.Transcript))
+        {
+            item.Add(new XElement(Podcast + "transcript",
+                new XAttribute("url", $"{channel.FeedBaseUrl}/{r.Id}.txt"),
+                new XAttribute("type", "text/plain"),
+                new XAttribute("language", channel.Language)));
         }
 
         return item;
@@ -132,4 +146,6 @@ public sealed record FeedChannelMetadata
     public bool IsExplicit { get; init; }
 
     public string? ImageUrl { get; init; }
+
+    public required string FeedBaseUrl { get; init; }
 }

@@ -21,6 +21,7 @@ public class FeedXmlBuilderTests
             Description = "Smoke test feed",
             Language = "en-US",
             SelfUrl = $"https://recordings.donkeywork.dev/feeds/{userId}/{collectionId}.xml",
+            FeedBaseUrl = $"https://recordings.donkeywork.dev/feeds/{userId}",
             Author = "Tester",
             AuthorEmail = "tester@example.com",
             ItunesCategory = "News",
@@ -83,6 +84,7 @@ public class FeedXmlBuilderTests
                 Description = "Test",
                 Language = "en-US",
                 SelfUrl = "https://example.com/feed",
+                FeedBaseUrl = "https://example.com",
             },
             new[] { rec });
 

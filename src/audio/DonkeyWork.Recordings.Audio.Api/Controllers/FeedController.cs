@@ -35,4 +35,12 @@ public class FeedController : ControllerBase
         var xml = await _feedService.BuildChannelFeedAsync(userId, collectionId, origin, cancellationToken);
         return xml is null ? NotFound() : Content(xml, RssMediaType);
     }
+
+    [HttpGet("{userId:guid}/{recordingId:guid}.txt")]
+    [Produces("text/plain")]
+    public async Task<IActionResult> GetTranscript(Guid userId, Guid recordingId, CancellationToken cancellationToken)
+    {
+        var text = await _feedService.GetTranscriptTextAsync(userId, recordingId, cancellationToken);
+        return text is null ? NotFound() : Content(text, "text/plain; charset=utf-8");
+    }
 }

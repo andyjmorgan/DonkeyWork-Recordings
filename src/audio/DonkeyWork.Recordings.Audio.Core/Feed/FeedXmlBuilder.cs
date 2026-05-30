@@ -102,6 +102,11 @@ public static class FeedXmlBuilder
 
         if (!string.IsNullOrWhiteSpace(r.ProcessedTranscript) || !string.IsNullOrWhiteSpace(r.Transcript))
         {
+            // VTT first — Apple Podcasts only renders VTT/SRT. text/plain stays for other readers.
+            item.Add(new XElement(Podcast + "transcript",
+                new XAttribute("url", $"{channel.FeedBaseUrl}/{r.Id}.vtt"),
+                new XAttribute("type", "text/vtt"),
+                new XAttribute("language", channel.Language)));
             item.Add(new XElement(Podcast + "transcript",
                 new XAttribute("url", $"{channel.FeedBaseUrl}/{r.Id}.txt"),
                 new XAttribute("type", "text/plain"),

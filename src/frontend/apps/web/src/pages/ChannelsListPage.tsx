@@ -48,13 +48,13 @@ export function ChannelsListPage() {
   };
 
   return (
-    <div className="p-8 mx-auto max-w-5xl space-y-6">
-      <header className="flex items-center justify-between">
+    <div className="p-4 sm:p-8 mx-auto max-w-5xl space-y-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Channels</h1>
           <p className="text-sm text-muted-foreground">Each channel is a podcast feed.</p>
         </div>
-        <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
+        <Button className="w-full sm:w-auto" onClick={() => { setEditing(null); setDialogOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />New channel
         </Button>
       </header>

@@ -76,12 +76,12 @@ export function ChannelDetailPage() {
   if (!collection) return <div className="p-8 text-muted-foreground">Channel not found.</div>;
 
   return (
-    <div className="p-8 mx-auto max-w-4xl space-y-6">
+    <div className="p-4 sm:p-8 mx-auto max-w-4xl space-y-6">
       <Link to="/channels" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4 mr-1" />All channels
       </Link>
 
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="space-y-1 min-w-0">
           <h1 className="text-2xl font-semibold truncate">{collection.name}</h1>
           <p className="text-sm text-muted-foreground">{collection.description || 'No description'}</p>
@@ -89,7 +89,7 @@ export function ChannelDetailPage() {
             <p className="text-xs text-muted-foreground italic">Tone: {collection.tone}</p>
           )}
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0 flex-wrap">
           <Button onClick={copyFeed} variant="outline" size="sm">
             {copiedFeed ? <><Check className="h-4 w-4 mr-2" />Copied</> : <><Copy className="h-4 w-4 mr-2" />Copy feed URL</>}
           </Button>
@@ -164,7 +164,7 @@ function RecordingRow({
         <AudioPlayer recording={live} className="flex-1" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="mt-2 opacity-0 group-hover:opacity-100 transition">
+            <Button variant="ghost" size="icon" className="mt-2 shrink-0 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>

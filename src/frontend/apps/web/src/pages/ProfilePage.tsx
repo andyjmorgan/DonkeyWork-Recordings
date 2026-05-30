@@ -29,7 +29,7 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="p-8 mx-auto max-w-2xl space-y-8">
+    <div className="p-4 sm:p-8 mx-auto max-w-2xl space-y-8">
       <header className="flex items-center gap-4">
         <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <UserCircle className="h-6 w-6" />

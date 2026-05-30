@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { TtsRecordingV1 } from '@/lib/api';
 
+const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
+
 function fmt(seconds: number): string {
   if (!isFinite(seconds) || seconds <= 0) return '00:00';
   const s = Math.floor(seconds);
@@ -20,6 +22,13 @@ export function AudioPlayer({ recording, className }: { recording: TtsRecordingV
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(recording.durationSeconds || 0);
+  const [speed, setSpeed] = useState(1);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = speed;
+  }, [speed]);
+
+  const cycleSpeed = () => setSpeed((s) => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length]);
 
   useEffect(() => {
     setIsPlaying(false);
@@ -70,6 +79,7 @@ export function AudioPlayer({ recording, className }: { recording: TtsRecordingV
         onEnded={() => { setIsPlaying(false); setPosition(duration); }}
         onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => {
+          e.currentTarget.playbackRate = speed;
           if (isFinite(e.currentTarget.duration) && e.currentTarget.duration > 0) {
             setDuration(e.currentTarget.duration);
           }
@@ -98,6 +108,16 @@ export function AudioPlayer({ recording, className }: { recording: TtsRecordingV
             {recording.status === 'Ready' ? `${fmt(position)} / ${fmt(duration)}` : recording.status}
           </div>
         </div>
+        <Button
+          onClick={cycleSpeed}
+          variant="outline"
+          size="sm"
+          disabled={!isReady}
+          className="shrink-0 px-2 tabular-nums"
+          title="Playback speed"
+        >
+          {speed}×
+        </Button>
       </div>
 
       <input

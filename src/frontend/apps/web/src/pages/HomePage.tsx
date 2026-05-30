@@ -13,9 +13,9 @@ export function HomePage() {
   };
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen p-4 sm:p-8">
       <div className="mx-auto max-w-3xl space-y-8">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Mic2 className="h-5 w-5" />

@@ -12,6 +12,16 @@ import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+// Newest first: most recently created at the top, oldest at the bottom.
+// Falls back to sequenceNumber (assigned max+1 on create, so higher = newer)
+// when timestamps tie or are missing.
+function byNewestFirst(a: TtsRecordingV1, b: TtsRecordingV1): number {
+  const at = Date.parse(a.createdAt);
+  const bt = Date.parse(b.createdAt);
+  if (Number.isFinite(at) && Number.isFinite(bt) && at !== bt) return bt - at;
+  return (b.sequenceNumber ?? 0) - (a.sequenceNumber ?? 0);
+}
+
 function CollapsibleDescription({ text }: { text?: string | null }) {
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
@@ -65,7 +75,7 @@ export function ChannelDetailPage() {
         collections.listRecordings(id, 0, 500),
       ]);
       setCollection(coll);
-      setItems(list.items);
+      setItems([...list.items].sort(byNewestFirst));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load channel');
     } finally {

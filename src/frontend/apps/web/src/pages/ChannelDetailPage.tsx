@@ -120,31 +120,33 @@ export function ChannelDetailPage() {
         <ArrowLeft className="h-4 w-4 mr-1" />All channels
       </Link>
 
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="space-y-1 min-w-0">
-          <h1 className="text-2xl font-semibold truncate">{collection.name}</h1>
-          <CollapsibleDescription text={collection.description} />
-          {collection.tone && (
-            <p className="text-xs text-muted-foreground italic">Tone: {collection.tone}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button onClick={copyFeed} variant="outline" size="sm" title="Copy feed URL">
-            {copiedFeed ? <Check className="h-4 w-4 sm:mr-2" /> : <Copy className="h-4 w-4 sm:mr-2" />}
-            <span className="hidden sm:inline">{copiedFeed ? 'Copied' : 'Copy feed URL'}</span>
-          </Button>
-          {podcastUrl && (
-            <Button asChild variant="outline" size="sm" title="Add to Apple Podcasts">
-              <a href={podcastUrl}>
-                <Podcast className="h-4 w-4 text-[#9933CC] sm:mr-2" />
-                <span className="hidden sm:inline">Apple Podcasts</span>
-              </a>
+      <header className="space-y-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <h1 className="text-2xl font-semibold truncate min-w-0">{collection.name}</h1>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button onClick={copyFeed} variant="outline" size="sm" title="Copy feed URL">
+              {copiedFeed ? <Check className="h-4 w-4 sm:mr-2" /> : <Copy className="h-4 w-4 sm:mr-2" />}
+              <span className="hidden sm:inline">{copiedFeed ? 'Copied' : 'Copy feed URL'}</span>
             </Button>
-          )}
-          <Button onClick={() => setNewOpen(true)} size="sm" className="ml-auto sm:ml-1">
-            <Plus className="h-4 w-4 mr-2" />New recording
-          </Button>
+            {podcastUrl && (
+              <Button asChild variant="outline" size="sm" title="Add to Apple Podcasts">
+                <a href={podcastUrl}>
+                  <Podcast className="h-4 w-4 text-[#9933CC] sm:mr-2" />
+                  <span className="hidden sm:inline">Apple Podcasts</span>
+                </a>
+              </Button>
+            )}
+            <Button onClick={() => setNewOpen(true)} size="sm" className="ml-auto sm:ml-1">
+              <Plus className="h-4 w-4 mr-2" />New recording
+            </Button>
+          </div>
         </div>
+        {/* Description + tone span the full width below the title row, rather than
+            being squeezed into the title's column next to the action buttons. */}
+        <CollapsibleDescription text={collection.description} />
+        {collection.tone && (
+          <p className="text-xs text-muted-foreground italic">Tone: {collection.tone}</p>
+        )}
       </header>
 
       <section className="space-y-3">

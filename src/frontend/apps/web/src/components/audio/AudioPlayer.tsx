@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { TtsRecordingV1 } from '@/lib/api';
 
@@ -15,6 +16,35 @@ function fmt(seconds: number): string {
   return h > 0
     ? `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${r.toString().padStart(2, '0')}`
     : `${m.toString().padStart(2, '0')}:${r.toString().padStart(2, '0')}`;
+}
+
+function TranscriptTabs({ inputText, processedText }: { inputText?: string | null; processedText?: string | null }) {
+  const tabs = [
+    inputText ? { key: 'input', label: 'Input text', text: inputText } : null,
+    processedText ? { key: 'processed', label: 'Spoken text (processed)', text: processedText } : null,
+  ].filter((t): t is { key: string; label: string; text: string } => t !== null);
+
+  if (tabs.length === 0) return null;
+
+  // A single source needs no tab strip — just show it.
+  if (tabs.length === 1) {
+    return <p className="mt-2 whitespace-pre-wrap break-words text-sm">{tabs[0].text}</p>;
+  }
+
+  return (
+    <Tabs defaultValue={tabs[0].key} className="mt-2">
+      <TabsList className="justify-start">
+        {tabs.map((t) => (
+          <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>
+        ))}
+      </TabsList>
+      {tabs.map((t) => (
+        <TabsContent key={t.key} value={t.key}>
+          <p className="whitespace-pre-wrap break-words text-sm">{t.text}</p>
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
 }
 
 export function AudioPlayer({ recording, className, actions }: { recording: TtsRecordingV1; className?: string; actions?: ReactNode }) {
@@ -143,20 +173,10 @@ export function AudioPlayer({ recording, className, actions }: { recording: TtsR
           <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">
             Transcript
           </summary>
-          <div className="mt-2 space-y-3">
-            {recording.transcript && (
-              <div>
-                <div className="mb-1 text-xs font-medium text-muted-foreground">Input text</div>
-                <p className="whitespace-pre-wrap break-words text-sm">{recording.transcript}</p>
-              </div>
-            )}
-            {recording.processedTranscript && (
-              <div>
-                <div className="mb-1 text-xs font-medium text-muted-foreground">Spoken text (processed)</div>
-                <p className="whitespace-pre-wrap break-words text-sm">{recording.processedTranscript}</p>
-              </div>
-            )}
-          </div>
+          <TranscriptTabs
+            inputText={recording.transcript}
+            processedText={recording.processedTranscript}
+          />
         </details>
       )}
     </div>

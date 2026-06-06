@@ -1,4 +1,5 @@
 import { Mic2, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth';
 
 export function HomePage() {
@@ -27,13 +28,10 @@ export function HomePage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-accent hover:text-accent-foreground"
-          >
+          <Button variant="outline" size="sm" onClick={handleLogout}>
             <LogOut className="h-4 w-4" />
             Log out
-          </button>
+          </Button>
         </header>
 
         <section className="rounded-2xl border border-border bg-card p-8 text-center text-card-foreground">

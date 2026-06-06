@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Copy, Check, MoreVertical, Trash2, FolderInput, Podcast } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,42 @@ import { NewRecordingDialog } from '@/components/audio/NewRecordingDialog';
 import { MoveRecordingDialog } from '@/components/audio/MoveRecordingDialog';
 import { useRecordingStatus } from '@/hooks/useRecordingStatus';
 import { useAuthStore } from '@/store/auth';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+
+function CollapsibleDescription({ text }: { text?: string | null }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+
+  // Detect whether the clamped text is actually truncated so we only show the
+  // toggle when there's something hidden. Re-measure when the text changes.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [text]);
+
+  return (
+    <div className="space-y-1">
+      <p
+        ref={ref}
+        className={cn('text-sm text-muted-foreground', !expanded && 'line-clamp-2')}
+      >
+        {text || 'No description'}
+      </p>
+      {(overflows || expanded) && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function ChannelDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -88,7 +123,7 @@ export function ChannelDetailPage() {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="space-y-1 min-w-0">
           <h1 className="text-2xl font-semibold truncate">{collection.name}</h1>
-          <p className="text-sm text-muted-foreground">{collection.description || 'No description'}</p>
+          <CollapsibleDescription text={collection.description} />
           {collection.tone && (
             <p className="text-xs text-muted-foreground italic">Tone: {collection.tone}</p>
           )}

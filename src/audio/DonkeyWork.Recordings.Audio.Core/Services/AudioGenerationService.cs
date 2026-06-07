@@ -15,20 +15,20 @@ public sealed class AudioGenerationService : IAudioGenerationService
     private readonly RecordingsDbContext _dbContext;
     private readonly IIdentityContext _identityContext;
     private readonly IAudioGenerationDispatcher _dispatcher;
-    private readonly ITtsProviderRegistry _ttsRegistry;
+    private readonly ITtsProvider _ttsProvider;
     private readonly TtsOptions _ttsOptions;
 
     public AudioGenerationService(
         RecordingsDbContext dbContext,
         IIdentityContext identityContext,
         IAudioGenerationDispatcher dispatcher,
-        ITtsProviderRegistry ttsRegistry,
+        ITtsProvider ttsProvider,
         IOptions<TtsOptions> ttsOptions)
     {
         _dbContext = dbContext;
         _identityContext = identityContext;
         _dispatcher = dispatcher;
-        _ttsRegistry = ttsRegistry;
+        _ttsProvider = ttsProvider;
         _ttsOptions = ttsOptions.Value;
     }
 
@@ -39,9 +39,14 @@ public sealed class AudioGenerationService : IAudioGenerationService
             throw new InvalidOperationException("StartGenerationAsync requires an authenticated identity.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Text))
+        var paragraphs = (request.Paragraphs ?? [])
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .ToList();
+
+        if (paragraphs.Count == 0)
         {
-            throw new ArgumentException("Text is required.", nameof(request));
+            throw new ArgumentException("At least one non-empty paragraph is required.", nameof(request));
         }
 
         if (request.MaxCharCount < request.TargetCharCount)
@@ -59,16 +64,10 @@ public sealed class AudioGenerationService : IAudioGenerationService
         var collection = await _dbContext.Collections.FirstOrDefaultAsync(c => c.Id == request.CollectionId, cancellationToken)
             ?? throw new InvalidOperationException($"Collection {request.CollectionId} not found.");
 
-        // Voice/model come from the channel by default; the request can override either.
-        var provider = _ttsRegistry.Resolve(
-            request.TtsModel
-            ?? collection.DefaultTtsModel
-            ?? _ttsOptions.DefaultModel);
-        var ttsModel = provider.Key;
-
+        // Voice comes from the channel by default; the request can override it.
         var voice = request.Voice
             ?? collection.DefaultVoice
-            ?? provider.DefaultVoice;
+            ?? _ttsProvider.DefaultVoice;
 
         var language = request.Language
             ?? collection.DefaultLanguage
@@ -82,11 +81,10 @@ public sealed class AudioGenerationService : IAudioGenerationService
             Name = request.Name,
             Description = request.Description ?? string.Empty,
             FilePath = string.Empty,
-            Transcript = request.Text,
+            Transcript = string.Join("\n\n", paragraphs),
             ContentType = "audio/mpeg",
             SizeBytes = 0,
             DurationSeconds = 0,
-            TtsModel = ttsModel,
             Voice = voice,
             Language = language,
             CollectionId = request.CollectionId,
@@ -102,8 +100,7 @@ public sealed class AudioGenerationService : IAudioGenerationService
         var command = new GenerateAudioRecordingCommand(
             RecordingId: recording.Id,
             UserId: userId,
-            Text: request.Text,
-            TtsModel: ttsModel,
+            Paragraphs: paragraphs,
             Voice: voice,
             Language: language,
             TargetCharCount: request.TargetCharCount,

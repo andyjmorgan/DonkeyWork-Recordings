@@ -101,10 +101,7 @@ public sealed class FeedService : IFeedService
             return null;
         }
 
-        // The processed (spoken) text is what the audio actually says; fall back to the raw input.
-        var text = !string.IsNullOrWhiteSpace(recording.ProcessedTranscript)
-            ? recording.ProcessedTranscript
-            : recording.Transcript;
+        var text = recording.Transcript;
 
         return string.IsNullOrWhiteSpace(text) ? null : (text, recording.DurationSeconds);
     }

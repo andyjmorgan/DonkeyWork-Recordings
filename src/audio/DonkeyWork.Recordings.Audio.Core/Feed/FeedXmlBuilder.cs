@@ -107,7 +107,7 @@ public static class FeedXmlBuilder
             item.Add(new XElement(Itunes + "episode", r.SequenceNumber.Value));
         }
 
-        if (!string.IsNullOrWhiteSpace(r.ProcessedTranscript) || !string.IsNullOrWhiteSpace(r.Transcript))
+        if (!string.IsNullOrWhiteSpace(r.Transcript))
         {
             // VTT first — Apple Podcasts only renders VTT/SRT. text/plain stays for other readers.
             item.Add(new XElement(Podcast + "transcript",

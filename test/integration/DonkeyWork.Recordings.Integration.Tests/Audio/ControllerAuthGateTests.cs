@@ -14,7 +14,7 @@ public class ControllerAuthGateTests : IClassFixture<RecordingsTestFixture>
     [Theory]
     [InlineData("/api/v1/recordings")]
     [InlineData("/api/v1/collections")]
-    [InlineData("/api/v1/voices/models")]
+    [InlineData("/api/v1/voices")]
     public async Task Authorize_Endpoints_Return_401_Without_Token(string path)
     {
         using var client = _fixture.Factory.CreateClient();

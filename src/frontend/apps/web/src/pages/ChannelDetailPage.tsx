@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Copy, Check, MoreVertical, Trash2, FolderInput, Podcast } from 'lucide-react';
+import { ArrowLeft, Copy, Check, MoreVertical, Trash2, FolderInput, Podcast, Pencil, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { collections, recordings, type AudioCollectionV1, type TtsRecordingV1 } from '@/lib/api';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
-import { NewRecordingDialog } from '@/components/audio/NewRecordingDialog';
 import { MoveRecordingDialog } from '@/components/audio/MoveRecordingDialog';
+import { EditRecordingDialog } from '@/components/audio/EditRecordingDialog';
 import { useRecordingStatus } from '@/hooks/useRecordingStatus';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -61,8 +61,8 @@ export function ChannelDetailPage() {
   const [collection, setCollection] = useState<AudioCollectionV1 | null>(null);
   const [items, setItems] = useState<TtsRecordingV1[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newOpen, setNewOpen] = useState(false);
   const [moving, setMoving] = useState<TtsRecordingV1 | null>(null);
+  const [editing, setEditing] = useState<TtsRecordingV1 | null>(null);
   const [copiedFeed, setCopiedFeed] = useState(false);
   const userId = useAuthStore((s) => s.user?.id);
 
@@ -85,10 +85,6 @@ export function ChannelDetailPage() {
 
   useEffect(() => { load(); }, [id]);
 
-  const handleCreated = (created: TtsRecordingV1) => {
-    setItems((prev) => [created, ...prev]);
-  };
-
   const handleDelete = async (r: TtsRecordingV1) => {
     if (!confirm(`Delete recording "${r.name}"?`)) return;
     try {
@@ -106,6 +102,10 @@ export function ChannelDetailPage() {
     } else {
       setItems((prev) => prev.map((x) => x.id === moved.id ? moved : x));
     }
+  };
+
+  const handleEdited = (updated: TtsRecordingV1) => {
+    setItems((prev) => prev.map((x) => x.id === updated.id ? updated : x));
   };
 
   const copyFeed = () => {
@@ -146,26 +146,20 @@ export function ChannelDetailPage() {
                 </a>
               </Button>
             )}
-            <Button onClick={() => setNewOpen(true)} size="sm" className="ml-auto sm:ml-1">
-              <Plus className="h-4 w-4 mr-2" />New recording
-            </Button>
           </div>
         </div>
-        {/* Description + tone span the full width below the title row, rather than
-            being squeezed into the title's column next to the action buttons. */}
+        {/* Description spans the full width below the title row, rather than being
+            squeezed into the title's column next to the action buttons. */}
         <CollapsibleDescription text={collection.description} />
-        {collection.tone && (
-          <p className="text-xs text-muted-foreground italic">Tone: {collection.tone}</p>
-        )}
       </header>
 
       <section className="space-y-3">
         {items.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-border p-12 text-center space-y-3">
+          <div className="rounded-2xl border border-dashed border-border p-12 text-center space-y-2">
             <p className="text-muted-foreground">No recordings in this channel yet.</p>
-            <Button onClick={() => setNewOpen(true)} variant="outline">
-              Create the first recording
-            </Button>
+            <p className="text-sm text-muted-foreground">
+              Recordings are created through the MCP server or REST API — see your Profile for setup.
+            </p>
           </div>
         )}
 
@@ -174,21 +168,21 @@ export function ChannelDetailPage() {
             key={r.id}
             recording={r}
             onUpdate={(fresh) => setItems((prev) => prev.map((x) => x.id === fresh.id ? fresh : x))}
+            onEdit={() => setEditing(r)}
             onMove={() => setMoving(r)}
             onDelete={() => handleDelete(r)}
           />
         ))}
       </section>
 
-      <NewRecordingDialog
-        open={newOpen}
-        onOpenChange={setNewOpen}
-        collectionId={collection.id}
-        defaultTtsModel={collection.defaultTtsModel}
-        defaultVoice={collection.defaultVoice}
-        defaultLanguage={collection.defaultLanguage}
-        onCreated={handleCreated}
-      />
+      {editing && (
+        <EditRecordingDialog
+          open={!!editing}
+          onOpenChange={(open) => !open && setEditing(null)}
+          recording={editing}
+          onSaved={handleEdited}
+        />
+      )}
 
       {moving && (
         <MoveRecordingDialog
@@ -205,11 +199,13 @@ export function ChannelDetailPage() {
 function RecordingRow({
   recording,
   onUpdate,
+  onEdit,
   onMove,
   onDelete,
 }: {
   recording: TtsRecordingV1;
   onUpdate: (r: TtsRecordingV1) => void;
+  onEdit: () => void;
   onMove: () => void;
   onDelete: () => void;
 }) {
@@ -217,6 +213,8 @@ function RecordingRow({
   useEffect(() => { if (live && live !== recording) onUpdate(live); }, [live, recording, onUpdate]);
 
   if (!live) return null;
+
+  const downloadName = `${live.chapterTitle || live.name || 'recording'}.mp3`;
 
   return (
     <div className="space-y-2">
@@ -230,6 +228,16 @@ function RecordingRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onEdit}>
+                <Pencil className="h-4 w-4 mr-2" />Edit…
+              </DropdownMenuItem>
+              {live.status === 'Ready' && live.filePath && (
+                <DropdownMenuItem asChild>
+                  <a href={live.filePath} download={downloadName}>
+                    <Download className="h-4 w-4 mr-2" />Download
+                  </a>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={onMove}>
                 <FolderInput className="h-4 w-4 mr-2" />Move…
               </DropdownMenuItem>

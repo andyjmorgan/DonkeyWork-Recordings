@@ -21,10 +21,9 @@ public static class GenerateAudioRecordingHandler
         GenerateAudioRecordingCommand command,
         RecordingsDbContext dbContext,
         IIdentityContext identityContext,
-        IGptOssPreprocessor preprocessor,
         ISsmlPreprocessor ssml,
         ITtsChunker chunker,
-        ITtsProviderRegistry ttsRegistry,
+        ITtsProvider ttsProvider,
         IStorageService storage,
         ILogger<GenerateAudioRecordingCommand> logger,
         CancellationToken cancellationToken)
@@ -34,7 +33,7 @@ public static class GenerateAudioRecordingHandler
         using var logScope = logger.BeginScope(new Dictionary<string, object?>
         {
             ["recordingId"] = command.RecordingId,
-            ["ttsModel"] = command.TtsModel,
+            ["voice"] = command.Voice,
         });
 
         var recording = await dbContext.Recordings
@@ -48,9 +47,9 @@ public static class GenerateAudioRecordingHandler
 
         using var generationActivity = AudioDiagnostics.ActivitySource.StartActivity("audio.generate");
         generationActivity?.SetTag("recording.id", command.RecordingId.ToString());
-        generationActivity?.SetTag("tts.model", command.TtsModel);
+        generationActivity?.SetTag("tts.model", ttsProvider.Key);
         generationActivity?.SetTag("tts.voice", command.Voice);
-        generationActivity?.SetTag("recording.input_chars", command.Text.Length);
+        generationActivity?.SetTag("recording.input_chars", command.Paragraphs.Sum(p => p.Length));
         var generationStopwatch = Stopwatch.StartNew();
 
         try
@@ -60,43 +59,28 @@ public static class GenerateAudioRecordingHandler
             recording.StatusDetail = "Preparing the script…";
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            var channelTone = recording.CollectionId is null
-                ? null
-                : await dbContext.Collections
-                    .Where(c => c.Id == recording.CollectionId)
-                    .Select(c => c.Tone)
-                    .FirstOrDefaultAsync(cancellationToken);
-
-            var paragraphs = await preprocessor.PreprocessAsync(
-                new GptOssPreprocessRequest(command.Text, channelTone, command.Language),
-                cancellationToken);
-
-            if (paragraphs.Count == 0)
-            {
-                throw new InvalidOperationException("gpt-oss returned zero paragraphs.");
-            }
-
+            // The caller (an MCP/REST client) supplies the text already split into spoken
+            // paragraphs; we chunk each paragraph to the TTS backend's size limits.
             var chunkerOpts = new ChunkerOptions
             {
                 TargetCharCount = command.TargetCharCount,
                 MaxCharCount = command.MaxCharCount,
             };
 
-            var chunks = paragraphs
+            var chunks = command.Paragraphs
                 .SelectMany(p => chunker.Chunk(p, chunkerOpts))
                 .Where(c => !string.IsNullOrWhiteSpace(c))
                 .ToList();
 
             if (chunks.Count == 0)
             {
-                throw new InvalidOperationException("Chunker produced zero chunks from preprocessed paragraphs.");
+                throw new InvalidOperationException("Chunker produced zero chunks from the supplied paragraphs.");
             }
 
             logger.LogInformation(
                 "Generating audio for recording {RecordingId}: {ParagraphCount} paragraphs → {ChunkCount} chunks",
-                recording.Id, paragraphs.Count, chunks.Count);
+                recording.Id, command.Paragraphs.Count, chunks.Count);
 
-            var ttsProvider = ttsRegistry.Resolve(command.TtsModel);
             generationActivity?.SetTag("tts.model.resolved", ttsProvider.Key);
             generationActivity?.SetTag("tts.chunk_count", chunks.Count);
             var wavBytes = new byte[chunks.Count][];
@@ -169,7 +153,6 @@ public static class GenerateAudioRecordingHandler
             recording.ContentType = "audio/mpeg";
             recording.SizeBytes = mp3Bytes.LongLength;
             recording.DurationSeconds = duration;
-            recording.ProcessedTranscript = string.Join("\n\n", paragraphs);
             recording.Status = TtsRecordingStatus.Ready;
             recording.Progress = 1.0;
             recording.StatusDetail = null;

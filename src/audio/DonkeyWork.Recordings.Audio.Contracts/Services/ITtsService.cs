@@ -10,6 +10,8 @@ public interface ITtsService
 
     Task<bool> DeleteRecordingAsync(Guid id, CancellationToken cancellationToken = default);
 
+    Task<TtsRecordingV1?> UpdateRecordingAsync(Guid recordingId, UpdateRecordingRequestV1 request, CancellationToken cancellationToken = default);
+
     Task<TtsRecordingV1?> MoveRecordingAsync(Guid recordingId, MoveRecordingToCollectionRequestV1 request, CancellationToken cancellationToken = default);
 
     Task<TtsPlaybackV1> GetPlaybackAsync(Guid recordingId, CancellationToken cancellationToken = default);

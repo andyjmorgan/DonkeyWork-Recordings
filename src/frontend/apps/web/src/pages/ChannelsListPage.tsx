@@ -80,9 +80,6 @@ export function ChannelsListPage() {
                   <span className="text-xs text-muted-foreground shrink-0">{c.recordingCount} ep</span>
                 </div>
                 <p className="text-sm text-muted-foreground line-clamp-2">{c.description || 'No description'}</p>
-                {c.tone && (
-                  <div className="text-xs text-muted-foreground italic line-clamp-1">Tone: {c.tone}</div>
-                )}
               </Link>
               <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
                 <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setDialogOpen(true); }}>

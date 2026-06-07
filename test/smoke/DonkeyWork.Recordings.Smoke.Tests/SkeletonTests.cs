@@ -1,15 +1,13 @@
 namespace DonkeyWork.Recordings.Smoke.Tests;
 
-// Live smoke tier. Hits the REAL Magpie (port-forward), REAL gpt-oss (port-forward),
-// REAL attic SeaweedFS at s3.donkeywork.dev. Every test carries
-// [Trait("Category", "LiveSmoke")]. Excluded from CI; run manually:
+// Live smoke tier. Hits the REAL Kokoro TTS (port-forward) and the REAL attic SeaweedFS
+// at s3.donkeywork.dev. Every test carries [Trait("Category", "LiveSmoke")]. Excluded
+// from CI; run manually:
 //
-//   kubectl --context=office port-forward -n magpie-tts svc/magpie-tts 9000:9000 &
-//   kubectl --context=office port-forward -n ollama-gpt-oss svc/ollama 11434:11434 &
+//   kubectl --context=office port-forward -n kokoro-tts svc/kokoro-tts 8000:8000 &
 //   dotnet test --filter "Category=LiveSmoke"
 //
-// First test to add: confirm Magpie /v1/audio/synthesize accepts SSML inline in the
-// `text` form field (the answer determines whether SsmlPreprocessor is real or a no-op).
+// First test to add: confirm Kokoro /v1/audio/speech returns WAV for a known voice id.
 public class SkeletonTests
 {
     [Fact]

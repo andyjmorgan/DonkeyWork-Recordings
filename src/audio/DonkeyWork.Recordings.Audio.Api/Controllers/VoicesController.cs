@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using DonkeyWork.Recordings.Audio.Contracts.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,128 +10,84 @@ namespace DonkeyWork.Recordings.Audio.Api.Controllers;
 [Route("api/v1/voices")]
 public class VoicesController : ControllerBase
 {
-    private const string CacheKey = "tts.models.v1";
+    private const string CacheKey = "tts.voices.v1";
     private const string PreviewText = "Testing, one, two, three.";
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
-    private readonly ITtsProviderRegistry _ttsRegistry;
+    private readonly ITtsProvider _ttsProvider;
     private readonly ISsmlPreprocessor _ssml;
-    private readonly IGptOssPreprocessor _preprocessor;
     private readonly IMemoryCache _cache;
 
     public VoicesController(
-        ITtsProviderRegistry ttsRegistry,
+        ITtsProvider ttsProvider,
         ISsmlPreprocessor ssml,
-        IGptOssPreprocessor preprocessor,
         IMemoryCache cache)
     {
-        _ttsRegistry = ttsRegistry;
+        _ttsProvider = ttsProvider;
         _ssml = ssml;
-        _preprocessor = preprocessor;
         _cache = cache;
     }
 
-    [HttpGet("models")]
+    [HttpGet]
     [Produces("application/json")]
-    public async Task<ActionResult<IReadOnlyList<TtsModelResponseV1>>> Models(CancellationToken cancellationToken)
+    public async Task<ActionResult<VoicesResponseV1>> List(CancellationToken cancellationToken)
     {
-        var models = await _cache.GetOrCreateAsync(CacheKey, async entry =>
+        var response = await _cache.GetOrCreateAsync(CacheKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheTtl;
 
-            var result = new List<TtsModelResponseV1>();
-            foreach (var provider in _ttsRegistry.Providers)
+            IReadOnlyList<TtsVoice> voices;
+            try
             {
-                IReadOnlyList<TtsVoice> voices;
-                try
-                {
-                    voices = await provider.ListVoicesAsync(cancellationToken);
-                }
-                catch
-                {
-                    // A backend being down shouldn't blank the whole menu — surface it with no voices.
-                    voices = [];
-                }
-
-                result.Add(new TtsModelResponseV1
-                {
-                    Key = provider.Key,
-                    DisplayName = provider.DisplayName,
-                    SupportsVoiceSelection = provider.SupportsVoiceSelection,
-                    DefaultVoice = provider.DefaultVoice,
-                    IsDefault = provider.Key == _ttsRegistry.Default.Key,
-                    Voices = voices
-                        .Select(v => new VoiceResponseV1
-                        {
-                            Id = v.Id,
-                            Language = v.Language,
-                            Name = v.Name,
-                            Emotion = v.Emotion,
-                            Rating = v.Rating,
-                            SampleUrl = v.SampleUrl,
-                        })
-                        .ToList(),
-                });
+                voices = await _ttsProvider.ListVoicesAsync(cancellationToken);
+            }
+            catch
+            {
+                // The backend being down shouldn't blank the whole picker — surface it with no voices.
+                voices = [];
             }
 
-            return (IReadOnlyList<TtsModelResponseV1>)result;
-        }) ?? [];
+            return new VoicesResponseV1
+            {
+                DefaultVoice = _ttsProvider.DefaultVoice,
+                Voices = voices
+                    .Select(v => new VoiceResponseV1
+                    {
+                        Id = v.Id,
+                        Language = v.Language,
+                        Name = v.Name,
+                        Emotion = v.Emotion,
+                        Rating = v.Rating,
+                        SampleUrl = v.SampleUrl,
+                    })
+                    .ToList(),
+            };
+        }) ?? new VoicesResponseV1 { DefaultVoice = _ttsProvider.DefaultVoice, Voices = [] };
 
-        return Ok(models);
+        return Ok(response);
     }
 
-    // Synthesise a short "testing one two three" clip with the supplied model/voice
-    // and (optional) tone so the user can audition a channel's defaults before
-    // saving. We push the phrase through gpt-oss with the tone applied so the
-    // tone choice is reflected in the spoken text, then take the first
-    // returned paragraph (capped) to keep the clip <~5s.
+    // Synthesise a short "testing one two three" clip with the supplied voice so the user can
+    // audition a channel's default before saving. The voice defaults to the provider default.
     [HttpPost("preview")]
     [Produces("audio/wav")]
     public async Task<IActionResult> Preview([FromBody] PreviewRequestV1 request, CancellationToken cancellationToken)
     {
-        string spoken;
-        try
-        {
-            var paragraphs = await _preprocessor.PreprocessAsync(
-                new GptOssPreprocessRequest(PreviewText, request.Tone, request.Language),
-                cancellationToken);
+        var voice = string.IsNullOrWhiteSpace(request.Voice) ? _ttsProvider.DefaultVoice : request.Voice;
+        var language = string.IsNullOrWhiteSpace(request.Language) ? "en-US" : request.Language;
 
-            spoken = paragraphs
-                .Select(p => p?.Trim() ?? string.Empty)
-                .FirstOrDefault(p => !string.IsNullOrEmpty(p))
-                ?? PreviewText;
-        }
-        catch
-        {
-            spoken = PreviewText;
-        }
-
-        if (spoken.Length > 280)
-        {
-            spoken = spoken[..280];
-        }
-
-        var provider = _ttsRegistry.Resolve(request.Model);
-        var wrapped = _ssml.Wrap(spoken);
-        var clip = await provider.SynthesizeAsync(
+        var wrapped = _ssml.Wrap(PreviewText);
+        var clip = await _ttsProvider.SynthesizeAsync(
             wrapped,
-            new TtsProviderRequest(request.Voice, request.Language),
+            new TtsProviderRequest(voice, language),
             cancellationToken);
 
         return File(clip.Audio, "audio/wav");
     }
 
-    public sealed class TtsModelResponseV1
+    public sealed class VoicesResponseV1
     {
-        public required string Key { get; init; }
-
-        public required string DisplayName { get; init; }
-
-        public required bool SupportsVoiceSelection { get; init; }
-
         public required string DefaultVoice { get; init; }
-
-        public required bool IsDefault { get; init; }
 
         public required IReadOnlyList<VoiceResponseV1> Voices { get; init; }
     }
@@ -154,14 +109,8 @@ public class VoicesController : ControllerBase
 
     public sealed class PreviewRequestV1
     {
-        public string? Model { get; init; }
+        public string? Voice { get; init; }
 
-        [Required]
-        public required string Voice { get; init; }
-
-        [Required]
-        public required string Language { get; init; }
-
-        public string? Tone { get; init; }
+        public string? Language { get; init; }
     }
 }

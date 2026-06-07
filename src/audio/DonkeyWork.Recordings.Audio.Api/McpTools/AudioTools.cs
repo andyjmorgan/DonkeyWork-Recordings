@@ -13,33 +13,34 @@ public class AudioTools
     private readonly ITtsService _ttsService;
     private readonly IAudioCollectionService _collectionService;
     private readonly IAudioGenerationService _generationService;
-    private readonly ITtsProviderRegistry _ttsRegistry;
+    private readonly ITtsProvider _ttsProvider;
 
     public AudioTools(
         ITtsService ttsService,
         IAudioCollectionService collectionService,
         IAudioGenerationService generationService,
-        ITtsProviderRegistry ttsRegistry)
+        ITtsProvider ttsProvider)
     {
         _ttsService = ttsService;
         _collectionService = collectionService;
         _generationService = generationService;
-        _ttsRegistry = ttsRegistry;
+        _ttsProvider = ttsProvider;
     }
 
     [McpServerTool(Name = "create_audio_recording", Title = "Create Audio Recording")]
     [Description(
-        "Submit text to be synthesised into a podcast-style audio recording in a channel. Every recording belongs to a " +
-        "channel (collectionId is REQUIRED) — create one first with create_audio_collection if needed. Voice/model/" +
-        "language come from the channel by default and are optional to override. Returns the recording immediately with " +
-        "Status=Pending — the id is the job id. The TTS pipeline runs in the background; poll get_audio_recording until " +
-        "Status is Ready or Failed.")]
+        "Submit text — already split into ordered spoken paragraphs — to be synthesised into a podcast-style audio " +
+        "recording in a channel. Split the source into natural breath-pause paragraphs yourself (typically 1-4 sentences " +
+        "each), stripping anything that wouldn't sound right read aloud (URLs, markdown, code, tables). Every recording " +
+        "belongs to a channel (collectionId is REQUIRED) — create one first with create_audio_collection if needed. " +
+        "Voice and language come from the channel by default and are optional to override. Returns the recording " +
+        "immediately with Status=Pending — the id is the job id. The TTS pipeline runs in the background; poll " +
+        "get_audio_recording until Status is Ready or Failed.")]
     public async Task<TtsRecordingV1?> CreateAudioRecording(
-        [Description("The text to synthesize. Markdown is fine; the preprocessor strips it.")] string text,
+        [Description("The spoken text as an ordered array of paragraphs. Each item is read as one paragraph with a pause between.")] string[] paragraphs,
         [Description("Display name for the recording (shown in the UI and used in the RSS title fallback).")] string name,
-        [Description("REQUIRED. The channel (collection) id this recording belongs to. Tone and the default voice/model are inherited from the channel.")] Guid collectionId,
-        [Description("Optional override of the channel's TTS model — a key from list_tts_models (e.g. 'kokoro', 'chatterbox'). Omit to use the channel default.")] string? ttsModel = null,
-        [Description("Optional override of the channel's voice — a voice id from list_tts_models for the chosen model (only models with SupportsVoiceSelection use it). Omit to use the channel default.")] string? voice = null,
+        [Description("REQUIRED. The channel (collection) id this recording belongs to. The default voice is inherited from the channel.")] Guid collectionId,
+        [Description("Optional override of the channel's voice — a voice id from list_voices. Omit to use the channel default (Heart).")] string? voice = null,
         [Description("Optional override of the channel's language (BCP-47, e.g. en-US). Omit to use the channel default.")] string? language = null,
         [Description("Optional 1-based position within the channel. Auto-assigned (max + 1) if omitted.")] int? sequenceNumber = null,
         [Description("Optional chapter-style title within the channel (falls back to Name in the UI).")] string? chapterTitle = null,
@@ -48,10 +49,9 @@ public class AudioTools
     {
         var recordingId = await _generationService.StartGenerationAsync(new StartAudioGenerationRequestV1
         {
-            Text = text,
+            Paragraphs = paragraphs,
             Name = name,
             Description = description,
-            TtsModel = ttsModel,
             Voice = voice,
             Language = language,
             CollectionId = collectionId,
@@ -62,43 +62,27 @@ public class AudioTools
         return await _ttsService.GetRecordingAsync(recordingId, cancellationToken);
     }
 
-    [McpServerTool(Name = "list_tts_models", Title = "List TTS Models", ReadOnly = true)]
+    [McpServerTool(Name = "list_voices", Title = "List Voices", ReadOnly = true)]
     [Description(
-        "List the available TTS models and, for models with SupportsVoiceSelection, their voices. " +
-        "Use a model's Key as ttsModel and a voice's Id as voice when creating a recording.")]
-    public async Task<IReadOnlyList<TtsModelInfo>> ListTtsModels(CancellationToken cancellationToken = default)
+        "List the available TTS voices. Use a voice's Id as the `voice` when creating a recording or channel. " +
+        "The default voice is Heart (af_heart) when none is specified.")]
+    public async Task<VoicesInfo> ListVoices(CancellationToken cancellationToken = default)
     {
-        var models = new List<TtsModelInfo>();
-        foreach (var provider in _ttsRegistry.Providers)
+        IReadOnlyList<TtsVoice> voices;
+        try
         {
-            IReadOnlyList<TtsVoice> voices;
-            try
-            {
-                voices = await provider.ListVoicesAsync(cancellationToken);
-            }
-            catch
-            {
-                voices = [];
-            }
-
-            models.Add(new TtsModelInfo(
-                provider.Key,
-                provider.DisplayName,
-                provider.SupportsVoiceSelection,
-                provider.DefaultVoice,
-                provider.Key == _ttsRegistry.Default.Key,
-                voices));
+            voices = await _ttsProvider.ListVoicesAsync(cancellationToken);
+        }
+        catch
+        {
+            voices = [];
         }
 
-        return models;
+        return new VoicesInfo(_ttsProvider.DefaultVoice, voices);
     }
 
-    public sealed record TtsModelInfo(
-        string Key,
-        string DisplayName,
-        bool SupportsVoiceSelection,
+    public sealed record VoicesInfo(
         string DefaultVoice,
-        bool IsDefault,
         IReadOnlyList<TtsVoice> Voices);
 
     [McpServerTool(Name = "get_audio_recording", Title = "Get Audio Recording", ReadOnly = true)]
@@ -146,6 +130,23 @@ public class AudioTools
         return _ttsService.DeleteRecordingAsync(recordingId, cancellationToken);
     }
 
+    [McpServerTool(Name = "update_audio_recording", Title = "Update Audio Recording")]
+    [Description("Edit a recording's metadata (name, description, chapter title). Omit fields to leave them unchanged. Does not re-synthesise audio.")]
+    public Task<TtsRecordingV1?> UpdateAudioRecording(
+        [Description("The recording id.")] Guid recordingId,
+        [Description("New display name.")] string? name = null,
+        [Description("New description / show-notes.")] string? description = null,
+        [Description("New chapter-style title (pass an empty string to clear it).")] string? chapterTitle = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _ttsService.UpdateRecordingAsync(recordingId, new UpdateRecordingRequestV1
+        {
+            Name = name,
+            Description = description,
+            ChapterTitle = chapterTitle,
+        }, cancellationToken);
+    }
+
     [McpServerTool(Name = "move_audio_recording", Title = "Move Audio Recording")]
     [Description("Move a recording to a different channel. A recording always belongs to a channel, so a target channel is required.")]
     public Task<TtsRecordingV1?> MoveAudioRecording(
@@ -187,20 +188,16 @@ public class AudioTools
     public Task<AudioCollectionV1> CreateAudioCollection(
         [Description("Display name for the channel.")] string name,
         [Description("Optional description.")] string? description = null,
-        [Description("Optional default TTS model key (from list_tts_models) for new recordings in this channel.")] string? defaultTtsModel = null,
-        [Description("Optional default voice (for a model that supports voice selection) for new recordings in this channel.")] string? defaultVoice = null,
+        [Description("Optional default voice id (from list_voices) for new recordings in this channel. Omit for Heart.")] string? defaultVoice = null,
         [Description("Optional default BCP-47 language code for new recordings in this channel.")] string? defaultLanguage = null,
-        [Description("Optional free-text tone instruction passed to gpt-oss for every recording in this channel (e.g. 'serious news anchor', 'upbeat morning host').")] string? tone = null,
         CancellationToken cancellationToken = default)
     {
         return _collectionService.CreateAsync(new CreateAudioCollectionRequestV1
         {
             Name = name,
             Description = description,
-            DefaultTtsModel = defaultTtsModel,
             DefaultVoice = defaultVoice,
             DefaultLanguage = defaultLanguage,
-            Tone = tone,
         }, cancellationToken);
     }
 
@@ -210,20 +207,16 @@ public class AudioTools
         [Description("Channel id.")] Guid id,
         [Description("New name.")] string? name = null,
         [Description("New description.")] string? description = null,
-        [Description("New default TTS model key (from list_tts_models).")] string? defaultTtsModel = null,
-        [Description("New default voice (for a model that supports voice selection).")] string? defaultVoice = null,
+        [Description("New default voice id (from list_voices).")] string? defaultVoice = null,
         [Description("New default BCP-47 language code.")] string? defaultLanguage = null,
-        [Description("New tone instruction for gpt-oss preprocessing.")] string? tone = null,
         CancellationToken cancellationToken = default)
     {
         return _collectionService.UpdateAsync(id, new UpdateAudioCollectionRequestV1
         {
             Name = name,
             Description = description,
-            DefaultTtsModel = defaultTtsModel,
             DefaultVoice = defaultVoice,
             DefaultLanguage = defaultLanguage,
-            Tone = tone,
         }, cancellationToken);
     }
 

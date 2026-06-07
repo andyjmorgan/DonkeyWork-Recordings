@@ -22,6 +22,13 @@ HTTP/MCP create (paragraphs[]) → insert Pending row + enqueue → background w
 In-memory `Channel<T>` + `BackgroundService` for now (drop-in swap for Wolverine+NATS once we've
 proven the pipeline end-to-end against real Kokoro/SeaweedFS).
 
+**Re-recording.** Editing a recording's transcript re-runs the same pipeline against the existing
+recording id (`POST /api/v1/recordings/{id}/regenerate`, or the `regenerate_audio_recording` MCP
+tool), so the mp3 is overwritten in place at the same `{userId}/{recordingId}.mp3` object key — the
+feed URL never changes. Voice, language, channel and metadata are preserved; only the audio and
+transcript change. The web edit dialog renders the whole transcript and splits it back into
+paragraphs on blank lines before re-recording.
+
 ## Stack
 
 | | |

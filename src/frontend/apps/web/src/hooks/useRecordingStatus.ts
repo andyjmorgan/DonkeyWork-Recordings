@@ -6,9 +6,11 @@ const POLL_INTERVAL_MS = 3000;
 export function useRecordingStatus(initial: TtsRecordingV1 | null): TtsRecordingV1 | null {
   const [recording, setRecording] = useState<TtsRecordingV1 | null>(initial);
 
+  // Re-sync when the row identity changes, and also when its status changes upstream —
+  // e.g. an edit dialog re-records and flips it back to Pending, which must restart polling.
   useEffect(() => {
     setRecording(initial);
-  }, [initial?.id]);
+  }, [initial?.id, initial?.status]);
 
   useEffect(() => {
     if (!recording) return;

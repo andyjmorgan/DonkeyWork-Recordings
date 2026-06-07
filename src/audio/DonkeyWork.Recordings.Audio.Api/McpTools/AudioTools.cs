@@ -147,6 +147,27 @@ public class AudioTools
         }, cancellationToken);
     }
 
+    [McpServerTool(Name = "regenerate_audio_recording", Title = "Regenerate Audio Recording")]
+    [Description(
+        "Re-synthesise an existing recording from an edited transcript, replacing the stored mp3 in place. " +
+        "Supply the full edited text already split into ordered spoken paragraphs (same rules as create_audio_recording). " +
+        "The recording keeps its current voice, language, channel and metadata; only the audio and transcript change. " +
+        "Returns the recording with Status=Pending — poll get_audio_recording until Status is Ready or Failed.")]
+    public async Task<TtsRecordingV1?> RegenerateAudioRecording(
+        [Description("The recording id to re-record.")] Guid recordingId,
+        [Description("The edited spoken text as an ordered array of paragraphs. Each item is read as one paragraph with a pause between.")] string[] paragraphs,
+        CancellationToken cancellationToken = default)
+    {
+        var started = await _generationService.RegenerateAsync(recordingId, new RegenerateRecordingRequestV1
+        {
+            Paragraphs = paragraphs,
+        }, cancellationToken);
+
+        return started
+            ? await _ttsService.GetRecordingAsync(recordingId, cancellationToken)
+            : null;
+    }
+
     [McpServerTool(Name = "move_audio_recording", Title = "Move Audio Recording")]
     [Description("Move a recording to a different channel. A recording always belongs to a channel, so a target channel is required.")]
     public Task<TtsRecordingV1?> MoveAudioRecording(

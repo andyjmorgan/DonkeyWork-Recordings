@@ -73,11 +73,17 @@ export function AudioPlayer({ recording, className, actions }: { recording: TtsR
   const isReady = recording.status === 'Ready' && recording.filePath;
   const pct = duration > 0 ? (position / duration) * 100 : 0;
 
+  // Re-recording overwrites the mp3 at the same URL, so bust the browser cache with the
+  // recording's last-updated timestamp; otherwise the player serves the stale audio.
+  const srcUrl = isReady
+    ? `${recording.filePath}${recording.filePath.includes('?') ? '&' : '?'}v=${encodeURIComponent(recording.updatedAt ?? recording.durationSeconds)}`
+    : undefined;
+
   return (
     <div data-testid="audio-player" className={cn('rounded-2xl border border-border bg-card p-4 space-y-4', className)}>
       <audio
         ref={audioRef}
-        src={isReady ? recording.filePath : undefined}
+        src={srcUrl}
         preload="metadata"
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}

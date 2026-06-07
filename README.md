@@ -34,11 +34,11 @@ paragraphs on blank lines before re-recording.
 | | |
 |---|---|
 | Backend | .NET 10, EF Core (Postgres), Kokoro TTS, SeaweedFS (S3) |
-| MCP | `ModelContextProtocol.AspNetCore` at `POST /` (auth-gated via MultiAuth) |
-| Auth | Keycloak (existing `Agents` realm, audience `donkeywork-recordings-api`) |
+| MCP | `ModelContextProtocol.AspNetCore` at `POST /mcp` (publicly `https://recordings.donkeywork.dev/mcp`, auth-gated via MultiAuth) |
+| Auth | Keycloak (existing `Agents` realm, audience `donkeywork-recordings-api`); MultiAuth accepts a Keycloak JWT **or** a user API key, so programmatic/MCP clients can use a key |
 | Frontend | React 19, Vite 7, Tailwind 3, Zustand, react-router-dom v7 — theme + auth lifted from `DonkeyWork-Agents` |
 | CI | GitHub Actions on self-hosted runners; images pushed to Nexus on main + semver tagged |
-| Infra | Provisioned out-of-band by the k3s-agentling (office cluster for the API + web, attic SeaweedFS for the public-read `recordings` bucket) |
+| Infra | Provisioned out-of-band by the k3s-agentling: office cluster namespace `donkeywork-recordings` (API + web behind ingress `recordings.donkeywork.dev`), attic SeaweedFS for the public-read `recordings` bucket served at `s3.donkeywork.dev` |
 
 ## Layout
 
@@ -49,16 +49,15 @@ src/
   common/DonkeyWork.Recordings.Persistence/        # EF Core, RecordingsDbContext, migrations
   identity/DonkeyWork.Recordings.Identity.{Contracts,Core,Api}/
   storage/DonkeyWork.Recordings.Storage.{Contracts,Core,Api}/
-  audio/DonkeyWork.Recordings.Audio.{Contracts,Core,Api}/   # feature core (named Audio to avoid host name collision)
-  mcp/DonkeyWork.Recordings.Mcp.{Contracts,Core,Api}/
+  audio/DonkeyWork.Recordings.Audio.{Contracts,Core,Api}/   # feature core (named Audio to avoid host name collision); MCP tools live in Audio.Api/McpTools/AudioTools.cs
+  mcp/DonkeyWork.Recordings.Mcp.{Contracts,Core,Api}/       # hosting glue only — Mcp.Api maps POST /mcp; the tools themselves are in the Audio feature module above
   frontend/                                        # pnpm workspace
     apps/web/                                      # Vite SPA
 test/
   audio/DonkeyWork.Recordings.Audio.Core.Tests/    # unit
   integration/DonkeyWork.Recordings.Integration.Tests/  # WebApplicationFactory + Testcontainers Postgres
   smoke/DonkeyWork.Recordings.Smoke.Tests/         # opt-in: Category=LiveSmoke against real Kokoro
-  e2e/DonkeyWork.Recordings.E2E.Tests/             # opt-in: Category=E2E (Playwright placeholder)
-docs/research/                                     # design notes + agentling answers
+  e2e/DonkeyWork.Recordings.E2E.Tests/             # opt-in .NET skeleton (Category=E2E); the live browser e2e is the Playwright suite in src/frontend/apps/web/e2e/
 docker-compose.dev.yml                             # Postgres for local dev
 Dockerfile                                         # full multi-stage backend build (for local)
 Dockerfile.runtime                                 # runtime-only backend (CI publishes ./publish, image consumes it)
@@ -97,14 +96,11 @@ config. See the parent `appsettings.json` for the shape.
 - **Push to `main`**: `docker-build.yml` — same build + test, then pushes
   `{registry}/donkeywork-recordings/api:{tag}` and `…/web:{tag}` to Nexus,
   and creates a `v{semver}` git tag for the release.
+- **PR touching `src/frontend/**`** (or `workflow_dispatch`): `e2e.yml` — runs the
+  Playwright browser suite (`src/frontend/apps/web/e2e/`, mobile-layout checks) against a real
+  Keycloak login on the `Agents` realm.
 
 Self-hosted runners (`[self-hosted, Linux, X64]`) provisioned by the k3s-agentling.
 
-## Design docs
-
-- `docs/research/architecture-reference.md` — parent (`DonkeyWork-Agents`) patterns we mirror.
-- `docs/research/proposed-design.md` — current spec (locked decisions + open infra items).
-- `docs/research/agentling-and-spark-tts.md` — Magpie + spark infra facts.
-- `docs/research/tts-pipeline.md` — extraction reference + provider swap point.
-- `docs/implementation-plan.md` — phased plan + a 2026-05-28 revisions log noting where the
-  earlier text was superseded.
+Builds are change-filtered (`dorny/paths-filter`): backend and frontend jobs only run when their
+respective paths change.

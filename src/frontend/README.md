@@ -48,5 +48,6 @@ apps/web/src/
 ## Production build
 
 `Dockerfile` here: node:22-alpine → pnpm build → nginx:alpine serving `apps/web/dist`. The bundled
-nginx config proxies `/api/`, `/feeds/`, `/.well-known/`, and `POST /` (MCP) to `http://api:8080` —
-expects an `api` service in the same namespace.
+nginx config proxies `/api/`, `/feeds/`, and `/.well-known/` to `http://api:8080` — expects an `api`
+service in the same namespace. The MCP endpoint (`POST /mcp`) is **not** served through this nginx;
+the cluster ingress routes the `/mcp` path straight to the API, bypassing the web pod.

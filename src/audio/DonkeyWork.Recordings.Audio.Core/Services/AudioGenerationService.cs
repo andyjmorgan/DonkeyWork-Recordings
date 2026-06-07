@@ -39,15 +39,7 @@ public sealed class AudioGenerationService : IAudioGenerationService
             throw new InvalidOperationException("StartGenerationAsync requires an authenticated identity.");
         }
 
-        var paragraphs = (request.Paragraphs ?? [])
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Select(p => p.Trim())
-            .ToList();
-
-        if (paragraphs.Count == 0)
-        {
-            throw new ArgumentException("At least one non-empty paragraph is required.", nameof(request));
-        }
+        var paragraphs = NormalizeParagraphs(request.Paragraphs, nameof(request));
 
         if (request.MaxCharCount < request.TargetCharCount)
         {
@@ -109,6 +101,71 @@ public sealed class AudioGenerationService : IAudioGenerationService
         await _dispatcher.DispatchAsync(command, cancellationToken);
 
         return recording.Id;
+    }
+
+    public async Task<bool> RegenerateAsync(Guid recordingId, RegenerateRecordingRequestV1 request, CancellationToken cancellationToken = default)
+    {
+        if (!_identityContext.IsAuthenticated)
+        {
+            throw new InvalidOperationException("RegenerateAsync requires an authenticated identity.");
+        }
+
+        var paragraphs = NormalizeParagraphs(request.Paragraphs, nameof(request));
+
+        if (request.MaxCharCount < request.TargetCharCount)
+        {
+            throw new ArgumentException("MaxCharCount must be >= TargetCharCount.", nameof(request));
+        }
+
+        var recording = await _dbContext.Recordings.FirstOrDefaultAsync(r => r.Id == recordingId, cancellationToken);
+        if (recording is null)
+        {
+            return false;
+        }
+
+        // Replace the transcript and re-queue generation against the SAME recording id. The handler
+        // uploads to "{UserId}/{Id}.mp3", so the existing object is overwritten in place. We keep the
+        // old FilePath/duration until the new audio is ready so playback never points at a missing file.
+        var voice = recording.Voice ?? _ttsProvider.DefaultVoice;
+        var language = recording.Language ?? _ttsOptions.DefaultLanguage;
+
+        recording.Transcript = string.Join("\n\n", paragraphs);
+        recording.Voice = voice;
+        recording.Language = language;
+        recording.Status = TtsRecordingStatus.Pending;
+        recording.Progress = 0;
+        recording.StatusDetail = null;
+        recording.ErrorMessage = null;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var command = new GenerateAudioRecordingCommand(
+            RecordingId: recording.Id,
+            // The owning user — not the caller — so the regenerated mp3 lands on the original object key.
+            UserId: recording.UserId,
+            Paragraphs: paragraphs,
+            Voice: voice,
+            Language: language,
+            TargetCharCount: request.TargetCharCount,
+            MaxCharCount: request.MaxCharCount);
+
+        await _dispatcher.DispatchAsync(command, cancellationToken);
+
+        return true;
+    }
+
+    private static List<string> NormalizeParagraphs(IReadOnlyList<string>? paragraphs, string paramName)
+    {
+        var normalized = (paragraphs ?? [])
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .ToList();
+
+        if (normalized.Count == 0)
+        {
+            throw new ArgumentException("At least one non-empty paragraph is required.", paramName);
+        }
+
+        return normalized;
     }
 
     private async Task<int?> NextSequenceNumberAsync(Guid? collectionId, CancellationToken cancellationToken)

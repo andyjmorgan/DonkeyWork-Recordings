@@ -103,6 +103,10 @@ export interface UpdateRecordingRequest {
   chapterTitle?: string;
 }
 
+export interface RegenerateRecordingRequest {
+  paragraphs: string[];
+}
+
 export interface FeedSettingsV1 {
   title: string;
   description: string;
@@ -130,6 +134,10 @@ export const recordings = {
   update: (id: string, req: UpdateRecordingRequest) =>
     json<TtsRecordingV1>(`/api/v1/recordings/${id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
+    }),
+  regenerate: (id: string, req: RegenerateRecordingRequest) =>
+    json<TtsRecordingV1>(`/api/v1/recordings/${id}/regenerate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
     }),
   move: (id: string, req: MoveRecordingRequest) =>
     json<TtsRecordingV1>(`/api/v1/recordings/${id}/collection`, {

@@ -134,15 +134,13 @@ export function ChannelDetailPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <h1 className="text-2xl font-semibold truncate min-w-0">{collection.name}</h1>
           <div className="flex items-center gap-2 shrink-0">
-            <Button onClick={copyFeed} variant="outline" size="sm" title="Copy feed URL">
-              {copiedFeed ? <Check className="h-4 w-4 sm:mr-2" /> : <Copy className="h-4 w-4 sm:mr-2" />}
-              <span className="hidden sm:inline">{copiedFeed ? 'Copied' : 'Copy feed URL'}</span>
+            <Button onClick={copyFeed} variant="outline" size="icon" title={copiedFeed ? 'Copied' : 'Copy feed URL'}>
+              {copiedFeed ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             </Button>
             {podcastUrl && (
-              <Button asChild variant="outline" size="sm" title="Add to Apple Podcasts">
+              <Button asChild variant="outline" size="icon" title="Add to Apple Podcasts">
                 <a href={podcastUrl}>
-                  <Podcast className="h-4 w-4 text-[#9933CC] sm:mr-2" />
-                  <span className="hidden sm:inline">Apple Podcasts</span>
+                  <Podcast className="h-4 w-4 text-[#9933CC]" />
                 </a>
               </Button>
             )}

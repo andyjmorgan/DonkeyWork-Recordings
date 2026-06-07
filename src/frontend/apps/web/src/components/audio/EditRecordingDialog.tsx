@@ -14,10 +14,21 @@ interface Props {
   onSaved: (recording: TtsRecordingV1) => void;
 }
 
+// Split an edited transcript into spoken paragraphs on blank lines, matching how the
+// transcript is stored (paragraphs joined by a blank line). Single newlines stay within
+// a paragraph. Returns trimmed, non-empty paragraphs.
+function splitParagraphs(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
 export function EditRecordingDialog({ open, onOpenChange, recording, onSaved }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [chapterTitle, setChapterTitle] = useState('');
+  const [transcript, setTranscript] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -25,6 +36,7 @@ export function EditRecordingDialog({ open, onOpenChange, recording, onSaved }: 
     setName(recording.name ?? '');
     setDescription(recording.description ?? '');
     setChapterTitle(recording.chapterTitle ?? '');
+    setTranscript(recording.transcript ?? '');
   }, [open, recording]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,14 +45,33 @@ export function EditRecordingDialog({ open, onOpenChange, recording, onSaved }: 
       toast.error('Name is required');
       return;
     }
+
+    const paragraphs = splitParagraphs(transcript);
+    // Re-record only when the transcript actually changed — compare the normalised
+    // (re-split, re-joined) form so whitespace-only edits don't trigger a synthesis.
+    const transcriptChanged = paragraphs.join('\n\n') !== splitParagraphs(recording.transcript ?? '').join('\n\n');
+
+    if (transcriptChanged && paragraphs.length === 0) {
+      toast.error('Transcript cannot be empty');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const saved = await recordings.update(recording.id, {
+      // Metadata patch first (name/chapter/description), then re-record if the text changed.
+      let saved = await recordings.update(recording.id, {
         name: name.trim(),
         description: description.trim(),
         chapterTitle: chapterTitle.trim(),
       });
-      toast.success('Recording updated');
+
+      if (transcriptChanged) {
+        saved = await recordings.regenerate(recording.id, { paragraphs });
+        toast.success('Re-recording audio…');
+      } else {
+        toast.success('Recording updated');
+      }
+
       onSaved(saved);
       onOpenChange(false);
     } catch (err) {
@@ -52,11 +83,14 @@ export function EditRecordingDialog({ open, onOpenChange, recording, onSaved }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Edit recording</DialogTitle>
-            <DialogDescription>Update the recording's details. This does not re-synthesise audio.</DialogDescription>
+            <DialogDescription>
+              Update the details, or edit the transcript to re-record the audio. Saving an edited
+              transcript re-synthesises the episode and replaces the existing file.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
@@ -70,7 +104,21 @@ export function EditRecordingDialog({ open, onOpenChange, recording, onSaved }: 
             </div>
             <div className="space-y-2">
               <Label htmlFor="recDesc">Description</Label>
-              <Textarea id="recDesc" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Show-notes for this episode." />
+              <Textarea id="recDesc" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Show-notes for this episode." />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="recTranscript">Transcript</Label>
+              <Textarea
+                id="recTranscript"
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                rows={12}
+                className="font-mono text-xs leading-relaxed"
+                placeholder="The spoken text. Separate paragraphs with a blank line."
+              />
+              <p className="text-xs text-muted-foreground">
+                Separate spoken paragraphs with a blank line. Editing this and saving will re-record the audio.
+              </p>
             </div>
           </div>
 

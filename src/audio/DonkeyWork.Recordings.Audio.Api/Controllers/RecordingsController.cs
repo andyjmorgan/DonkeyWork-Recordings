@@ -47,6 +47,22 @@ public class RecordingsController : ControllerBase
         return AcceptedAtAction(nameof(Get), new { id = recordingId }, recording);
     }
 
+    [HttpPost("{id:guid}/regenerate")]
+    public async Task<ActionResult<TtsRecordingV1>> Regenerate(
+        Guid id,
+        [FromBody] RegenerateRecordingRequestV1 request,
+        CancellationToken cancellationToken)
+    {
+        var started = await _generationService.RegenerateAsync(id, request, cancellationToken);
+        if (!started)
+        {
+            return NotFound();
+        }
+
+        var recording = await _ttsService.GetRecordingAsync(id, cancellationToken);
+        return AcceptedAtAction(nameof(Get), new { id }, recording);
+    }
+
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<TtsRecordingV1>> Update(
         Guid id,

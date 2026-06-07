@@ -69,6 +69,95 @@ public class AudioGenerationServiceTests : IClassFixture<RecordingsTestFixture>
     }
 
     [Fact]
+    public async Task Regenerate_Replaces_Transcript_And_Resets_To_Pending()
+    {
+        var userId = Guid.NewGuid();
+        Guid collectionId;
+        Guid recordingId;
+
+        await using (var setupScope = _fixture.Factory.Services.CreateAsyncScope())
+        {
+            setupScope.ServiceProvider.GetRequiredService<IdentityContext>().SetIdentity(userId);
+            var db = setupScope.ServiceProvider.GetRequiredService<RecordingsDbContext>();
+            var collection = new TtsAudioCollectionEntity { UserId = userId, Name = "Re-record channel", Description = "" };
+            db.Collections.Add(collection);
+            await db.SaveChangesAsync();
+            collectionId = collection.Id;
+        }
+
+        await using (var scope = _fixture.Factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<IdentityContext>().SetIdentity(userId);
+            var service = scope.ServiceProvider.GetRequiredService<IAudioGenerationService>();
+
+            recordingId = await service.StartGenerationAsync(new StartAudioGenerationRequestV1
+            {
+                Paragraphs = ["Original first paragraph.", "Original second paragraph."],
+                Name = "Re-record me",
+                CollectionId = collectionId,
+                Voice = "af_heart",
+                Language = "en-US",
+            });
+        }
+
+        // Pretend the first generation completed so we can observe the reset back to Pending.
+        await using (var scope = _fixture.Factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<IdentityContext>().SetIdentity(userId);
+            var db = scope.ServiceProvider.GetRequiredService<RecordingsDbContext>();
+            var recording = await db.Recordings.SingleAsync(r => r.Id == recordingId);
+            recording.Status = TtsRecordingStatus.Ready;
+            recording.Progress = 1.0;
+            recording.FilePath = "https://example.invalid/old.mp3";
+            await db.SaveChangesAsync();
+        }
+
+        bool started;
+        await using (var scope = _fixture.Factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<IdentityContext>().SetIdentity(userId);
+            var service = scope.ServiceProvider.GetRequiredService<IAudioGenerationService>();
+
+            started = await service.RegenerateAsync(recordingId, new RegenerateRecordingRequestV1
+            {
+                Paragraphs = ["Edited paragraph one.", "Edited paragraph two."],
+            });
+        }
+
+        Assert.True(started);
+
+        await using (var scope = _fixture.Factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<IdentityContext>().SetIdentity(userId);
+            var db = scope.ServiceProvider.GetRequiredService<RecordingsDbContext>();
+
+            var recording = await db.Recordings.SingleAsync(r => r.Id == recordingId);
+            Assert.Equal(TtsRecordingStatus.Pending, recording.Status);
+            Assert.Equal(0, recording.Progress);
+            Assert.Equal("Edited paragraph one.\n\nEdited paragraph two.", recording.Transcript);
+            // The original audio is left in place until the new generation overwrites it.
+            Assert.Equal("https://example.invalid/old.mp3", recording.FilePath);
+        }
+    }
+
+    [Fact]
+    public async Task Regenerate_Missing_Recording_Returns_False()
+    {
+        var userId = Guid.NewGuid();
+
+        await using var scope = _fixture.Factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<IdentityContext>().SetIdentity(userId);
+        var service = scope.ServiceProvider.GetRequiredService<IAudioGenerationService>();
+
+        var started = await service.RegenerateAsync(Guid.NewGuid(), new RegenerateRecordingRequestV1
+        {
+            Paragraphs = ["Nothing to re-record."],
+        });
+
+        Assert.False(started);
+    }
+
+    [Fact]
     public async Task StartGeneration_Without_Collection_Throws()
     {
         var userId = Guid.NewGuid();

@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, withCacheBust } from '@/lib/utils';
 import type { TtsRecordingV1 } from '@/lib/api';
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -73,10 +73,8 @@ export function AudioPlayer({ recording, className, actions }: { recording: TtsR
   const isReady = recording.status === 'Ready' && recording.filePath;
   const pct = duration > 0 ? (position / duration) * 100 : 0;
 
-  // Re-recording overwrites the mp3 at the same URL, so bust the browser cache with the
-  // recording's last-updated timestamp; otherwise the player serves the stale audio.
   const srcUrl = isReady
-    ? `${recording.filePath}${recording.filePath.includes('?') ? '&' : '?'}v=${encodeURIComponent(recording.updatedAt ?? recording.durationSeconds)}`
+    ? withCacheBust(recording.filePath, recording.updatedAt ?? recording.durationSeconds)
     : undefined;
 
   return (

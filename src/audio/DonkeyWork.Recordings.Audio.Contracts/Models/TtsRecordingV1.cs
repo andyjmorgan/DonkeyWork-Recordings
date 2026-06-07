@@ -12,10 +12,6 @@ public sealed class TtsRecordingV1
 
     public required string Transcript { get; init; }
 
-    public required string ProcessedTranscript { get; init; }
-
-    public required string TtsModel { get; init; }
-
     public required string ContentType { get; init; }
 
     public required long SizeBytes { get; init; }

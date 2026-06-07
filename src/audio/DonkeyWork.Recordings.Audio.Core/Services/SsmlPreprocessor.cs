@@ -5,10 +5,10 @@ namespace DonkeyWork.Recordings.Audio.Core.Services;
 
 public sealed partial class SsmlPreprocessor : ISsmlPreprocessor
 {
-    // Magpie TTS takes raw UTF-8 text. It only honours the <phoneme> SSML tag (not break/emphasis)
-    // and does NOT decode XML/HTML entities — it speaks "&amp;" as "amp", "&#39;" as garbled
-    // syllables, etc. So we strip the control tokens the preprocessor may emit and pass the words
-    // through verbatim, without HTML-encoding or a <speak> wrapper.
+    // Kokoro TTS takes raw UTF-8 text — no SSML, and it does NOT decode XML/HTML entities (it would
+    // speak "&amp;" as "amp"). Callers supply plain spoken text, but as a defensive measure we strip
+    // any stray bracketed control tokens (e.g. [PAUSE=500], [EMPHASIS=...]) that would otherwise be
+    // read aloud verbatim, and pass the words through without HTML-encoding or a <speak> wrapper.
     public string Wrap(string chunkWithInlineTokens)
     {
         if (string.IsNullOrEmpty(chunkWithInlineTokens))

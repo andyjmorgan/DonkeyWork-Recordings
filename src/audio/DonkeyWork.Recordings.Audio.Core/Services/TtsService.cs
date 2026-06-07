@@ -83,6 +83,40 @@ public sealed class TtsService : ITtsService
         return true;
     }
 
+    public async Task<TtsRecordingV1?> UpdateRecordingAsync(Guid recordingId, UpdateRecordingRequestV1 request, CancellationToken cancellationToken = default)
+    {
+        var recording = await _dbContext.Recordings
+            .FirstOrDefaultAsync(r => r.Id == recordingId, cancellationToken);
+
+        if (recording is null)
+        {
+            return null;
+        }
+
+        if (request.Name is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                throw new ArgumentException("Name cannot be blank.", nameof(request));
+            }
+
+            recording.Name = request.Name.Trim();
+        }
+
+        if (request.Description is not null)
+        {
+            recording.Description = request.Description;
+        }
+
+        if (request.ChapterTitle is not null)
+        {
+            recording.ChapterTitle = string.IsNullOrWhiteSpace(request.ChapterTitle) ? null : request.ChapterTitle.Trim();
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return recording.ToV1();
+    }
+
     public async Task<TtsRecordingV1?> MoveRecordingAsync(Guid recordingId, MoveRecordingToCollectionRequestV1 request, CancellationToken cancellationToken = default)
     {
         var recording = await _dbContext.Recordings

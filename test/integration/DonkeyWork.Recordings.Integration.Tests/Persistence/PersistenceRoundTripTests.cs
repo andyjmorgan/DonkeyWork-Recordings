@@ -34,8 +34,7 @@ public class PersistenceRoundTripTests : IClassFixture<RecordingsTestFixture>
                 UserId = userId,
                 Name = "Daily News",
                 Description = "Test channel",
-                Tone = "serious news anchor, measured pace",
-                DefaultVoice = "Magpie-Multilingual.EN-US.Aria",
+                DefaultVoice = "af_heart",
                 DefaultLanguage = "en-US",
                 Author = "Test Author",
                 AuthorEmail = "test@example.com",
@@ -57,7 +56,7 @@ public class PersistenceRoundTripTests : IClassFixture<RecordingsTestFixture>
                 ContentType = "audio/mpeg",
                 SizeBytes = 12_345,
                 DurationSeconds = 4.25,
-                Voice = "Magpie-Multilingual.EN-US.Aria",
+                Voice = "af_heart",
                 Language = "en-US",
                 Status = TtsRecordingStatus.Ready,
                 Progress = 1.0,
@@ -76,8 +75,7 @@ public class PersistenceRoundTripTests : IClassFixture<RecordingsTestFixture>
 
             var collection = await db.Collections.SingleAsync(c => c.Id == collectionId);
             Assert.Equal("Daily News", collection.Name);
-            Assert.Equal("serious news anchor, measured pace", collection.Tone);
-            Assert.Equal("Magpie-Multilingual.EN-US.Aria", collection.DefaultVoice);
+            Assert.Equal("af_heart", collection.DefaultVoice);
             Assert.Equal("Test Author", collection.Author);
             Assert.Equal("News", collection.ItunesCategory);
             Assert.True(collection.CreatedAt >= writeStartedAt.AddSeconds(-1));

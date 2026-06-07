@@ -41,7 +41,7 @@ public class AudioGenerationServiceTests : IClassFixture<RecordingsTestFixture>
 
             recordingId = await service.StartGenerationAsync(new StartAudioGenerationRequestV1
             {
-                Text = "Hello world, this is a generation request that should land as a Pending recording.",
+                Paragraphs = ["Hello world, this is a generation request that should land as a Pending recording."],
                 Name = "Smoke test recording",
                 Description = "Inserted by AudioGenerationServiceTests",
                 CollectionId = collectionId,
@@ -79,7 +79,7 @@ public class AudioGenerationServiceTests : IClassFixture<RecordingsTestFixture>
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.StartGenerationAsync(new StartAudioGenerationRequestV1
         {
-            Text = "A recording with no channel must be rejected.",
+            Paragraphs = ["A recording with no channel must be rejected."],
             Name = "No channel",
             CollectionId = Guid.Empty,
         }));
@@ -101,9 +101,8 @@ public class AudioGenerationServiceTests : IClassFixture<RecordingsTestFixture>
                 UserId = userId,
                 Name = "Daily Roundup",
                 Description = "Default-voice channel",
-                DefaultVoice = "Magpie-Multilingual.EN-US.Mia",
+                DefaultVoice = "af_bella",
                 DefaultLanguage = "en-US",
-                Tone = "warm conversational",
             };
             db.Collections.Add(collection);
             await db.SaveChangesAsync();
@@ -118,14 +117,14 @@ public class AudioGenerationServiceTests : IClassFixture<RecordingsTestFixture>
 
             firstId = await service.StartGenerationAsync(new StartAudioGenerationRequestV1
             {
-                Text = "First episode of the daily roundup.",
+                Paragraphs = ["First episode of the daily roundup."],
                 Name = "Episode 1",
                 CollectionId = collectionId,
             });
 
             secondId = await service.StartGenerationAsync(new StartAudioGenerationRequestV1
             {
-                Text = "Second episode of the daily roundup.",
+                Paragraphs = ["Second episode of the daily roundup."],
                 Name = "Episode 2",
                 CollectionId = collectionId,
             });
@@ -139,7 +138,7 @@ public class AudioGenerationServiceTests : IClassFixture<RecordingsTestFixture>
             var first = await db.Recordings.SingleAsync(r => r.Id == firstId);
             var second = await db.Recordings.SingleAsync(r => r.Id == secondId);
 
-            Assert.Equal("Magpie-Multilingual.EN-US.Mia", first.Voice);
+            Assert.Equal("af_bella", first.Voice);
             Assert.Equal("en-US", first.Language);
             Assert.Equal(collectionId, first.CollectionId);
             Assert.Equal(1, first.SequenceNumber);

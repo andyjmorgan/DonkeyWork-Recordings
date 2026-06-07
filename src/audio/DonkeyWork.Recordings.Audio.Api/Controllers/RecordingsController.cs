@@ -47,6 +47,16 @@ public class RecordingsController : ControllerBase
         return AcceptedAtAction(nameof(Get), new { id = recordingId }, recording);
     }
 
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<TtsRecordingV1>> Update(
+        Guid id,
+        [FromBody] UpdateRecordingRequestV1 request,
+        CancellationToken cancellationToken)
+    {
+        var recording = await _ttsService.UpdateRecordingAsync(id, request, cancellationToken);
+        return recording is null ? NotFound() : Ok(recording);
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {

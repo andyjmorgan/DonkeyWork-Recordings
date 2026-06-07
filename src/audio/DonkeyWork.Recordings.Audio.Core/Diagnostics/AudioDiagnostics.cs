@@ -14,16 +14,6 @@ public static class AudioDiagnostics
 
     private static readonly Meter Meter = new(MeterName);
 
-    // gpt-oss preprocessing (one measurement per prompt).
-    public static readonly Histogram<double> PreprocessDuration =
-        Meter.CreateHistogram<double>("tts.preprocess.duration", "s", "gpt-oss preprocessing wall-clock duration.");
-
-    public static readonly Histogram<int> PreprocessParagraphs =
-        Meter.CreateHistogram<int>("tts.preprocess.paragraphs", "{paragraph}", "Paragraphs returned by a gpt-oss prompt.");
-
-    public static readonly Counter<long> PreprocessRequests =
-        Meter.CreateCounter<long>("tts.preprocess.requests", "{request}", "gpt-oss prompts, tagged by outcome.");
-
     // Per-chunk TTS synthesis.
     public static readonly Histogram<double> ChunkSynthDuration =
         Meter.CreateHistogram<double>("tts.chunk.synth.duration", "s", "Per-chunk TTS synthesis duration.");

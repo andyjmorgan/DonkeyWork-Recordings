@@ -2,11 +2,8 @@ namespace DonkeyWork.Recordings.Audio.Contracts.Services;
 
 public interface ITtsProvider
 {
+    // Identifies the named HttpClient and tags diagnostics.
     string Key { get; }
-
-    string DisplayName { get; }
-
-    bool SupportsVoiceSelection { get; }
 
     string DefaultVoice { get; }
 

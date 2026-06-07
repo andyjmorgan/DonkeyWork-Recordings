@@ -22,10 +22,6 @@ public sealed class KokoroTtsProvider : ITtsProvider
 
     public string Key => ProviderKey;
 
-    public string DisplayName => "Kokoro";
-
-    public bool SupportsVoiceSelection => true;
-
     public string DefaultVoice => _options.DefaultVoice;
 
     public async Task<TtsClipResult> SynthesizeAsync(string text, TtsProviderRequest request, CancellationToken cancellationToken = default)

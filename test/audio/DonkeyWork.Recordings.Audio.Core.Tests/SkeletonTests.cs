@@ -2,9 +2,8 @@ namespace DonkeyWork.Recordings.Audio.Core.Tests;
 
 // Unit test tier. No DB, no HTTP, no filesystem. Pure-function coverage:
 //   - TtsChunker (ported verbatim from the extraction)
-//   - SsmlPreprocessor (token → SSML, malformed-input handling)
-//   - MagpieTtsProvider with HttpMessageHandler mock
-//   - GptOssPreprocessor with mocked client (incl. reasoning-field stripping)
+//   - SsmlPreprocessor (stray token stripping, malformed-input handling)
+//   - KokoroTtsProvider with HttpMessageHandler mock
 //   - FeedXmlBuilder snapshot tests
 public class SkeletonTests
 {

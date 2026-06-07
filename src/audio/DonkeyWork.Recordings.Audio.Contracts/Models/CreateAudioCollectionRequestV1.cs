@@ -8,13 +8,9 @@ public sealed class CreateAudioCollectionRequestV1
 
     public string? CoverImagePath { get; init; }
 
-    public string? DefaultTtsModel { get; init; }
-
     public string? DefaultVoice { get; init; }
 
     public string? DefaultLanguage { get; init; }
-
-    public string? Tone { get; init; }
 
     public string? Author { get; init; }
 

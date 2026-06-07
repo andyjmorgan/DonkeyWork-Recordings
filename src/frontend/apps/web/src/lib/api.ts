@@ -23,8 +23,6 @@ export interface TtsRecordingV1 {
   description: string;
   filePath: string;
   transcript: string;
-  processedTranscript: string;
-  ttsModel: string;
   contentType: string;
   sizeBytes: number;
   durationSeconds: number;
@@ -46,10 +44,8 @@ export interface AudioCollectionV1 {
   name: string;
   description: string;
   coverImagePath?: string;
-  defaultTtsModel?: string;
   defaultVoice?: string;
   defaultLanguage?: string;
-  tone?: string;
   author?: string;
   authorEmail?: string;
   itunesCategory?: string;
@@ -64,21 +60,16 @@ export interface ListResponse<T> { items: T[]; totalCount: number }
 
 export interface TtsVoice { id: string; language: string; name: string; emotion?: string; rating?: string; sampleUrl?: string }
 
-export interface TtsModelV1 {
-  key: string;
-  displayName: string;
-  supportsVoiceSelection: boolean;
+export interface VoicesResponse {
   defaultVoice: string;
-  isDefault: boolean;
   voices: TtsVoice[];
 }
 
 export interface StartAudioGenerationRequest {
-  text: string;
+  paragraphs: string[];
   name: string;
   collectionId: string;
   description?: string;
-  ttsModel?: string;
   voice?: string;
   language?: string;
   sequenceNumber?: number;
@@ -89,10 +80,8 @@ export interface CreateAudioCollectionRequest {
   name: string;
   description?: string;
   coverImagePath?: string;
-  defaultTtsModel?: string;
   defaultVoice?: string;
   defaultLanguage?: string;
-  tone?: string;
   author?: string;
   authorEmail?: string;
   itunesCategory?: string;
@@ -105,6 +94,12 @@ export type UpdateAudioCollectionRequest = Partial<CreateAudioCollectionRequest>
 export interface MoveRecordingRequest {
   collectionId: string;
   sequenceNumber?: number;
+  chapterTitle?: string;
+}
+
+export interface UpdateRecordingRequest {
+  name?: string;
+  description?: string;
   chapterTitle?: string;
 }
 
@@ -132,6 +127,10 @@ export const recordings = {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
     }),
   delete: (id: string) => json<void>(`/api/v1/recordings/${id}`, { method: 'DELETE' }),
+  update: (id: string, req: UpdateRecordingRequest) =>
+    json<TtsRecordingV1>(`/api/v1/recordings/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
+    }),
   move: (id: string, req: MoveRecordingRequest) =>
     json<TtsRecordingV1>(`/api/v1/recordings/${id}/collection`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
@@ -156,8 +155,8 @@ export const collections = {
 };
 
 export const voices = {
-  models: () => json<TtsModelV1[]>('/api/v1/voices/models'),
-  preview: async (req: { model?: string; voice: string; language: string; tone?: string }): Promise<Blob> => {
+  list: () => json<VoicesResponse>('/api/v1/voices'),
+  preview: async (req: { voice?: string; language: string }): Promise<Blob> => {
     const res = await fetchWithAuth('/api/v1/voices/preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

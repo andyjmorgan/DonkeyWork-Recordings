@@ -33,10 +33,6 @@ public class TtsAudioCollectionConfiguration : IEntityTypeConfiguration<TtsAudio
             .HasColumnName("cover_image_path")
             .HasMaxLength(1000);
 
-        builder.Property(e => e.DefaultTtsModel)
-            .HasColumnName("default_tts_model")
-            .HasMaxLength(50);
-
         builder.Property(e => e.DefaultVoice)
             .HasColumnName("default_voice")
             .HasMaxLength(200);
@@ -44,9 +40,6 @@ public class TtsAudioCollectionConfiguration : IEntityTypeConfiguration<TtsAudio
         builder.Property(e => e.DefaultLanguage)
             .HasColumnName("default_language")
             .HasMaxLength(20);
-
-        builder.Property(e => e.Tone)
-            .HasColumnName("tone");
 
         builder.Property(e => e.Author)
             .HasColumnName("author")

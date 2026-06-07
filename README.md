@@ -1,16 +1,18 @@
 # DonkeyWork-Recordings
 
-Site + MCP server that turns posted text into podcast-style audio recordings via the spark TTS stack
-(gpt-oss preprocessing → Magpie synthesis → ffmpeg stitch → SeaweedFS). Publishes per-user RSS feeds
-for podcast apps. Modular monolith mirroring `DonkeyWork-Agents`.
+Site + MCP server that turns posted text into podcast-style audio recordings
+(caller-supplied paragraphs → Kokoro TTS synthesis → ffmpeg stitch → SeaweedFS). Publishes per-user
+RSS feeds for podcast apps. Modular monolith mirroring `DonkeyWork-Agents`.
+
+The caller (an MCP/REST client — typically an LLM) supplies the text already split into spoken
+paragraphs; there is no server-side LLM preprocessing.
 
 ## Pipeline
 
 ```
-HTTP/MCP create → insert Pending row + enqueue → background worker
-  → gpt-oss (channel.Tone + global emphasis prompt, JSON mode)
-  → SsmlPreprocessor ([PAUSE=Nms]/[EMPHASIS=…] → <break>, strip <emphasis>)
-  → TtsChunker → MagpieTtsProvider per chunk (Triton GPU, MaxParallelism=2)
+HTTP/MCP create (paragraphs[]) → insert Pending row + enqueue → background worker
+  → SsmlPreprocessor (defensive: strip stray [PAUSE=…]/[EMPHASIS=…] tokens)
+  → TtsChunker → KokoroTtsProvider per chunk
   → AudioConverter.ConcatWav → WavToMp3 → ffprobe duration
   → IStorageService.UploadAsync (x-amz-meta-* tagged)
   → https://s3.donkeywork.dev/recordings/{userId}/{recordingId}.mp3
@@ -18,13 +20,13 @@ HTTP/MCP create → insert Pending row + enqueue → background worker
 ```
 
 In-memory `Channel<T>` + `BackgroundService` for now (drop-in swap for Wolverine+NATS once we've
-proven the pipeline end-to-end against real Magpie/gpt-oss/SeaweedFS).
+proven the pipeline end-to-end against real Kokoro/SeaweedFS).
 
 ## Stack
 
 | | |
 |---|---|
-| Backend | .NET 10, EF Core (Postgres), Magpie TTS, gpt-oss:20b via Ollama, SeaweedFS (S3) |
+| Backend | .NET 10, EF Core (Postgres), Kokoro TTS, SeaweedFS (S3) |
 | MCP | `ModelContextProtocol.AspNetCore` at `POST /` (auth-gated via MultiAuth) |
 | Auth | Keycloak (existing `Agents` realm, audience `donkeywork-recordings-api`) |
 | Frontend | React 19, Vite 7, Tailwind 3, Zustand, react-router-dom v7 — theme + auth lifted from `DonkeyWork-Agents` |
@@ -47,7 +49,7 @@ src/
 test/
   audio/DonkeyWork.Recordings.Audio.Core.Tests/    # unit
   integration/DonkeyWork.Recordings.Integration.Tests/  # WebApplicationFactory + Testcontainers Postgres
-  smoke/DonkeyWork.Recordings.Smoke.Tests/         # opt-in: Category=LiveSmoke against real Magpie
+  smoke/DonkeyWork.Recordings.Smoke.Tests/         # opt-in: Category=LiveSmoke against real Kokoro
   e2e/DonkeyWork.Recordings.E2E.Tests/             # opt-in: Category=E2E (Playwright placeholder)
 docs/research/                                     # design notes + agentling answers
 docker-compose.dev.yml                             # Postgres for local dev
@@ -63,9 +65,8 @@ _nuget.config                                      # Nexus proxy template — `c
 # 1. Postgres
 docker compose -f docker-compose.dev.yml up -d
 
-# 2. Port-forward Magpie + gpt-oss from the office cluster
-kubectl --context=office port-forward -n magpie-tts svc/magpie-tts 9000:9000 &
-kubectl --context=office port-forward -n ollama-gpt-oss svc/ollama 11434:11434 &
+# 2. Port-forward Kokoro TTS from the office cluster
+kubectl --context=office port-forward -n kokoro-tts svc/kokoro-tts 8000:8000 &
 
 # 3. Run migrations + start the backend
 dotnet ef database update \

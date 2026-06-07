@@ -1,30 +1,20 @@
-import { useEffect, useState } from 'react';
-import { UserCircle, Copy, Check, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { UserCircle, Copy, Check } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
-import { feedSettings, type FeedSettingsV1 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { ApiKeysPanel } from '@/components/ApiKeysPanel';
 import { toast } from 'sonner';
 
+const MCP_URL = 'https://recordings.donkeywork.dev/mcp';
+
 export function ProfilePage() {
   const user = useAuthStore((s) => s.user);
-  const [settings, setSettings] = useState<FeedSettingsV1 | null>(null);
-  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    feedSettings.get()
-      .then((s) => { if (!cancelled) { setSettings(s); setLoading(false); } })
-      .catch(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
-
   const handleCopy = () => {
-    if (!settings) return;
-    navigator.clipboard.writeText(settings.masterFeedUrl);
+    navigator.clipboard.writeText(MCP_URL);
     setCopied(true);
-    toast.success('Master feed URL copied');
+    toast.success('MCP server URL copied');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -36,7 +26,7 @@ export function ProfilePage() {
         </div>
         <div>
           <h1 className="text-2xl font-semibold">Profile</h1>
-          <p className="text-sm text-muted-foreground">Account + master feed URL.</p>
+          <p className="text-sm text-muted-foreground">Account, API keys, and MCP setup.</p>
         </div>
       </header>
 
@@ -57,21 +47,19 @@ export function ProfilePage() {
       <ApiKeysPanel />
 
       <section className="rounded-2xl border border-border bg-card p-6 space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Master Feed</h2>
-        {loading && <div className="text-sm text-muted-foreground inline-flex items-center gap-2"><RefreshCw className="h-3 w-3 animate-spin" />Loading…</div>}
-        {settings && (
-          <div className="space-y-3">
-            <div className="font-mono text-xs break-all p-3 rounded-lg border border-border bg-muted/50">
-              {settings.masterFeedUrl}
-            </div>
-            <Button onClick={handleCopy} variant="outline" size="sm">
-              {copied ? <><Check className="h-4 w-4 mr-2" />Copied</> : <><Copy className="h-4 w-4 mr-2" />Copy URL</>}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Subscribe in Overcast, Apple Podcasts, or any RSS-aware podcast app.
-            </p>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">MCP Server</h2>
+        <p className="text-xs text-muted-foreground">
+          Add this server to an MCP client (Claude, etc.) to create channels and recordings. Authenticate with an
+          {' '}<code className="font-mono text-[11px]">X-Api-Key: dk_…</code> header using a key from above (MCP scope).
+        </p>
+        <div className="space-y-3">
+          <div className="font-mono text-xs break-all p-3 rounded-lg border border-border bg-muted/50">
+            {MCP_URL}
           </div>
-        )}
+          <Button onClick={handleCopy} variant="outline" size="sm">
+            {copied ? <><Check className="h-4 w-4 mr-2" />Copied</> : <><Copy className="h-4 w-4 mr-2" />Copy URL</>}
+          </Button>
+        </div>
       </section>
     </div>
   );

@@ -10,11 +10,7 @@ public class TtsRecordingEntity : BaseEntity
 
     public string Transcript { get; set; } = string.Empty;
 
-    public string ProcessedTranscript { get; set; } = string.Empty;
-
     public string ContentType { get; set; } = "audio/mpeg";
-
-    public string TtsModel { get; set; } = "chatterbox";
 
     public long SizeBytes { get; set; }
 

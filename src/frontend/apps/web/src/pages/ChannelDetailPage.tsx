@@ -9,7 +9,7 @@ import { MoveRecordingDialog } from '@/components/audio/MoveRecordingDialog';
 import { EditRecordingDialog } from '@/components/audio/EditRecordingDialog';
 import { useRecordingStatus } from '@/hooks/useRecordingStatus';
 import { useAuthStore } from '@/store/auth';
-import { cn } from '@/lib/utils';
+import { cn, withCacheBust } from '@/lib/utils';
 import { toast } from 'sonner';
 
 // Newest first: most recently created at the top, oldest at the bottom.
@@ -231,7 +231,7 @@ function RecordingRow({
               </DropdownMenuItem>
               {live.status === 'Ready' && live.filePath && (
                 <DropdownMenuItem asChild>
-                  <a href={live.filePath} download={downloadName}>
+                  <a href={withCacheBust(live.filePath, live.updatedAt ?? live.durationSeconds)} download={downloadName}>
                     <Download className="h-4 w-4 mr-2" />Download
                   </a>
                 </DropdownMenuItem>

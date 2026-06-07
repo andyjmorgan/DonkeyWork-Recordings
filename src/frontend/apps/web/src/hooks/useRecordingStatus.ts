@@ -6,11 +6,20 @@ const POLL_INTERVAL_MS = 3000;
 export function useRecordingStatus(initial: TtsRecordingV1 | null): TtsRecordingV1 | null {
   const [recording, setRecording] = useState<TtsRecordingV1 | null>(initial);
 
-  // Re-sync when the row identity changes, and also when its status changes upstream —
-  // e.g. an edit dialog re-records and flips it back to Pending, which must restart polling.
+  // Re-seed from the prop when it's a genuinely newer external update — a different row,
+  // or a more recent `updatedAt` (e.g. an edit dialog re-records and flips it back to
+  // Pending, which must restart polling). Guarding on the timestamp is what stops a render
+  // loop: this hook also pushes its polled value back up to the parent list, so without the
+  // "strictly newer" check the parent's stale write-back would be re-adopted here and the two
+  // would trade places every render, flickering status/length. Older or equal props are ignored.
   useEffect(() => {
-    setRecording(initial);
-  }, [initial?.id, initial?.status]);
+    setRecording((cur) => {
+      if (!initial || !cur || cur.id !== initial.id) return initial;
+      const curAt = Date.parse(cur.updatedAt ?? '');
+      const nextAt = Date.parse(initial.updatedAt ?? '');
+      return Number.isFinite(nextAt) && (!Number.isFinite(curAt) || nextAt > curAt) ? initial : cur;
+    });
+  }, [initial]);
 
   useEffect(() => {
     if (!recording) return;

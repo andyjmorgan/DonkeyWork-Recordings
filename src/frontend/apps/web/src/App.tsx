@@ -7,7 +7,6 @@ import { ChannelsListPage } from '@/pages/ChannelsListPage';
 import { FeedSettingsPage } from '@/pages/FeedSettingsPage';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginCallbackPage } from '@/pages/LoginCallbackPage';
-import { LoginPage } from '@/pages/LoginPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 
 export function App() {
@@ -17,7 +16,7 @@ export function App() {
     <Routes>
       {/* Public marketing landing page — outside the auth guard. */}
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      {/* No dedicated login page — sign-in redirects straight to Keycloak. */}
       <Route path="/login/callback" element={<LoginCallbackPage />} />
       <Route
         element={

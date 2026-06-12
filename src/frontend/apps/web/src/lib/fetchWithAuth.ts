@@ -1,3 +1,4 @@
+import { login } from '@/lib/auth';
 import { useAuthStore } from '@/store/auth';
 
 export async function fetchWithAuth(
@@ -12,7 +13,7 @@ export async function fetchWithAuth(
     if (!result.ok) {
       if (result.reason === 'rejected') {
         logout();
-        window.location.assign('/login');
+        login();
         throw new Error('Session expired');
       }
       throw new Error('Token refresh failed (network)');
@@ -40,7 +41,7 @@ export async function fetchWithAuth(
 
     if (result.reason === 'rejected') {
       logout();
-      window.location.assign('/login');
+      login();
       throw new Error('Session expired');
     }
 

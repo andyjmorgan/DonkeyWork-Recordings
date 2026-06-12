@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { login } from '@/lib/auth';
 import { useAuthStore } from '@/store/auth';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -7,10 +7,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isTokenExpired = useAuthStore((s) => s.isTokenExpired);
   const refreshTokens = useAuthStore((s) => s.refreshTokens);
   const logout = useAuthStore((s) => s.logout);
-  const location = useLocation();
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    // Signed out on a guarded route — hand straight off to Keycloak.
+    if (!isAuthenticated) {
+      login();
+      return;
+    }
     if (isTokenExpired()) {
       refreshTokens().then((result) => {
         if (!result.ok && result.reason === 'rejected') {
@@ -21,7 +24,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, isTokenExpired, refreshTokens, logout]);
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+    return null; // redirecting to Keycloak
   }
 
   return <>{children}</>;

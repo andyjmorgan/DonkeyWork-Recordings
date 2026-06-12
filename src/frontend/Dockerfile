@@ -23,6 +23,11 @@ server {
 
     location / {
         try_files $uri $uri/ /index.html;
+        # The SPA shell (index.html) must revalidate on every load, otherwise a
+        # browser keeps running a stale bundle after a deploy — e.g. an old build
+        # whose "/" route redirected to /login. Hashed assets stay immutable
+        # (see the regex location below); only the HTML is no-cache.
+        add_header Cache-Control "no-cache";
     }
 
     location /api/ {
@@ -59,6 +64,7 @@ server {
         error_page 418 = @mcp;
         if ($request_method = POST) { return 418; }
         try_files /index.html =404;
+        add_header Cache-Control "no-cache";
     }
 
     location @mcp {

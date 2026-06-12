@@ -62,7 +62,7 @@ export function LoginCallbackPage() {
     }
 
     window.history.replaceState(null, '', window.location.pathname);
-    navigate('/', { replace: true });
+    navigate('/channels', { replace: true });
   }, [navigate, setTokens, setUser, initial]);
 
   if (error) {

@@ -46,6 +46,7 @@ public sealed class UserApiKeyService : IUserApiKeyService
             Name = name,
             Description = description ?? string.Empty,
             EncryptedKey = Encrypt(apiKey),
+            KeyHash = ComputeLookupHash(apiKey),
             Scope = scope,
         };
 
@@ -91,19 +92,54 @@ public sealed class UserApiKeyService : IUserApiKeyService
         // at authentication time no user is known yet — bypass it. AsNoTracking
         // so the loaded entities don't pollute the change tracker for any
         // downstream controller queries on the same scoped DbContext.
-        var entities = await _dbContext.UserApiKeys
+        var hash = ComputeLookupHash(apiKey);
+
+        // Fast path: indexed O(1) lookup by deterministic hash. The hash is a
+        // SHA-256 of the (high-entropy) key, so a match authenticates without
+        // decrypting anything.
+        var entity = await _dbContext.UserApiKeys
             .IgnoreQueryFilters()
             .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.KeyHash == hash, cancellationToken);
+
+        // Slow path, transitional only: rows created before key_hash existed
+        // have a NULL hash and can't be found by index. Scan just those, verify
+        // by decrypt, and backfill the hash so the key uses the fast path next
+        // time. The scan shrinks to nothing as keys age over.
+        entity ??= await FindLegacyByDecryptAndBackfillAsync(apiKey, hash, cancellationToken);
+
+        if (entity is null)
+        {
+            return null;
+        }
+
+        // Stamp LastUsedAt via ExecuteUpdate so we don't drag the
+        // AuditableInterceptor along (UpdatedAt should track real edits,
+        // not every authenticated request).
+        var now = DateTimeOffset.UtcNow;
+        await _dbContext.UserApiKeys
+            .IgnoreQueryFilters()
+            .Where(e => e.Id == entity.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(e => e.LastUsedAt, now), cancellationToken);
+
+        return new ApiKeyValidationResult(entity.UserId, entity.Scope);
+    }
+
+    private async Task<UserApiKeyEntity?> FindLegacyByDecryptAndBackfillAsync(
+        string apiKey, string hash, CancellationToken cancellationToken)
+    {
+        var legacy = await _dbContext.UserApiKeys
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(e => e.KeyHash == null)
             .ToListAsync(cancellationToken);
 
-        foreach (var entity in entities)
+        foreach (var entity in legacy)
         {
+            string decrypted;
             try
             {
-                if (Decrypt(entity.EncryptedKey) != apiKey)
-                {
-                    continue;
-                }
+                decrypted = Decrypt(entity.EncryptedKey);
             }
             catch (CryptographicException)
             {
@@ -111,20 +147,29 @@ public sealed class UserApiKeyService : IUserApiKeyService
                 continue;
             }
 
-            // Stamp LastUsedAt via ExecuteUpdate so we don't drag the
-            // AuditableInterceptor along (UpdatedAt should track real edits,
-            // not every authenticated request).
-            var now = DateTimeOffset.UtcNow;
+            if (!FixedTimeEquals(decrypted, apiKey))
+            {
+                continue;
+            }
+
             await _dbContext.UserApiKeys
                 .IgnoreQueryFilters()
                 .Where(e => e.Id == entity.Id)
-                .ExecuteUpdateAsync(s => s.SetProperty(e => e.LastUsedAt, now), cancellationToken);
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.KeyHash, hash), cancellationToken);
 
-            return new ApiKeyValidationResult(entity.UserId, entity.Scope);
+            return entity;
         }
 
         return null;
     }
+
+    private static string ComputeLookupHash(string apiKey)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(apiKey)));
+
+    private static bool FixedTimeEquals(string a, string b)
+        => CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(a),
+            Encoding.UTF8.GetBytes(b));
 
     private UserApiKey ToModel(UserApiKeyEntity entity, bool masked)
     {

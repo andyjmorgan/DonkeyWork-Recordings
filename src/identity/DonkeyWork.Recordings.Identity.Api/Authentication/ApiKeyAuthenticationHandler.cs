@@ -71,7 +71,7 @@ public sealed class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAu
         return AuthenticateResult.Success(new AuthenticationTicket(principal, SchemeName));
     }
 
-    // McpOnly: only the root path (MCP is mounted at "/" and receives POSTs).
+    // McpOnly: only the MCP endpoint (mounted at "/mcp" — see Mcp.Api MapMcp).
     // RestOnly: only /api/* (regular controllers). RestAndMcp: no restriction.
     private bool IsScopeAllowed(ApiKeyScope scope)
     {
@@ -81,8 +81,8 @@ public sealed class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAu
         }
 
         var path = Request.Path.Value ?? string.Empty;
-        var isMcp = HttpMethods.IsPost(Request.Method)
-            && (path == "/" || string.IsNullOrEmpty(path));
+        var isMcp = path.Equals("/mcp", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/mcp/", StringComparison.OrdinalIgnoreCase);
         var isRest = path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase);
 
         return scope switch

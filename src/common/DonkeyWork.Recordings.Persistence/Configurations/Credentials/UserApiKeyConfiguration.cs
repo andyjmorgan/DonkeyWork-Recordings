@@ -35,6 +35,10 @@ public class UserApiKeyConfiguration : IEntityTypeConfiguration<UserApiKeyEntity
             .HasColumnType("bytea")
             .IsRequired();
 
+        builder.Property(e => e.KeyHash)
+            .HasColumnName("key_hash")
+            .HasMaxLength(64);
+
         builder.Property(e => e.LastUsedAt)
             .HasColumnName("last_used_at");
 
@@ -50,6 +54,9 @@ public class UserApiKeyConfiguration : IEntityTypeConfiguration<UserApiKeyEntity
 
         builder.Property(e => e.UpdatedAt)
             .HasColumnName("updated_at");
+
+        builder.HasIndex(e => e.KeyHash)
+            .IsUnique();
 
         builder.HasIndex(e => e.UserId);
     }

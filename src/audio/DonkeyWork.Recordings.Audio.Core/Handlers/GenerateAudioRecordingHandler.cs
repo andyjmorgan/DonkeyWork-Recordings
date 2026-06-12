@@ -83,7 +83,7 @@ public static class GenerateAudioRecordingHandler
 
             generationActivity?.SetTag("tts.model.resolved", ttsProvider.Key);
             generationActivity?.SetTag("tts.chunk_count", chunks.Count);
-            var wavBytes = new byte[chunks.Count][];
+            var wavBytes = new List<byte[]>(chunks.Count);
 
             // The TTS backends serialise on a single instance — concurrent requests just queue —
             // so synthesise the chunks one at a time in order.
@@ -95,13 +95,21 @@ public static class GenerateAudioRecordingHandler
                 chunkActivity?.SetTag("chunk.chars", chunks[index].Length);
                 chunkActivity?.SetTag("tts.model", ttsProvider.Key);
 
-                var chunkStopwatch = Stopwatch.StartNew();
                 var wrapped = ssml.Wrap(chunks[index]);
+                if (string.IsNullOrWhiteSpace(wrapped))
+                {
+                    // SSML normalisation reduced this chunk to nothing (e.g. it was only
+                    // stray [PAUSE=…]/[EMPHASIS=…] tokens). Skip it — posting an empty
+                    // string to the TTS backend would 4xx and fail the whole recording.
+                    continue;
+                }
+
+                var chunkStopwatch = Stopwatch.StartNew();
                 var clip = await ttsProvider.SynthesizeAsync(
                     wrapped,
                     new TtsProviderRequest(command.Voice, command.Language),
                     cancellationToken);
-                wavBytes[index] = clip.Audio;
+                wavBytes.Add(clip.Audio);
                 chunkStopwatch.Stop();
 
                 chunkActivity?.SetTag("chunk.bytes", clip.Audio.LongLength);
@@ -114,12 +122,18 @@ public static class GenerateAudioRecordingHandler
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
 
+            if (wavBytes.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "Every chunk was empty after SSML normalisation — nothing to synthesise.");
+            }
+
             recording.Progress = 0.92;
             recording.StatusDetail = "Stitching & encoding…";
             await dbContext.SaveChangesAsync(cancellationToken);
 
             var stitchActivity = AudioDiagnostics.ActivitySource.StartActivity("tts.stitch");
-            var stitchedWav = AudioConverter.ConcatWav(wavBytes);
+            var stitchedWav = AudioConverter.ConcatWav(wavBytes.ToArray());
             var mp3Bytes = AudioConverter.WavToMp3(stitchedWav);
             var duration = AudioConverter.ProbeDurationSeconds(mp3Bytes);
             stitchActivity?.SetTag("audio.bytes", mp3Bytes.LongLength);

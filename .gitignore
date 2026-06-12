@@ -130,8 +130,6 @@ samples/
 # Local data (docker volumes)
 /data/
 
-# Local docs
-docs/
 CLAUDE.local.md
 
 # Frontend

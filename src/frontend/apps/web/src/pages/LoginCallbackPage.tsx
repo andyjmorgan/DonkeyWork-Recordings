@@ -71,7 +71,7 @@ export function LoginCallbackPage() {
         <div className="w-full max-w-sm space-y-4 text-center">
           <h1 className="text-2xl font-bold text-destructive">Login failed</h1>
           <p className="text-muted-foreground">{error}</p>
-          <a href="/login" className="inline-block text-sm text-primary hover:underline">
+          <a href="/api/v1/auth/login" className="inline-block text-sm text-primary hover:underline">
             Try again
           </a>
         </div>

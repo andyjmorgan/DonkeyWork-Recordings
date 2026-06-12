@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
+import { login } from '@/lib/auth';
 import { useAuthStore } from '@/store/auth';
 
 const REPO = 'https://github.com/andyjmorgan/DonkeyWork-Recordings';
@@ -95,7 +96,7 @@ const pipeline = [
 export function LandingPage() {
   const navigate = useNavigate();
   const authed = useAuthStore((s) => s.isAuthenticated);
-  const enter = () => navigate(authed ? '/channels' : '/login');
+  const enter = () => (authed ? navigate('/channels') : login());
   const enterLabel = authed ? 'Open app' : 'Log in';
 
   return (

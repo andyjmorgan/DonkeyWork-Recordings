@@ -108,7 +108,12 @@ export const useAuthStore = create<AuthState>()(
       refreshTokens: async () => {
         const state = get();
 
-        if (state.isRefreshing && state.refreshPromise) {
+        // Coalesce concurrent callers onto a single in-flight refresh. The
+        // promise is published synchronously below (before any await), so a
+        // second caller in the same tick sees it here instead of starting a
+        // parallel refresh — which would spend the rotated refresh token and
+        // log the user out.
+        if (state.refreshPromise) {
           return state.refreshPromise;
         }
 
@@ -118,8 +123,6 @@ export const useAuthStore = create<AuthState>()(
         }
 
         const refreshPromise: Promise<RefreshResult> = (async () => {
-          set({ isRefreshing: true });
-
           const maxAttempts = 3;
           const baseDelay = 1000;
           let rejected = false;
@@ -171,7 +174,9 @@ export const useAuthStore = create<AuthState>()(
           return { ok: false, reason: rejected ? 'rejected' : 'network' };
         })();
 
-        set({ refreshPromise });
+        // Publish synchronously, before returning, so the guard above catches
+        // any concurrent caller.
+        set({ isRefreshing: true, refreshPromise });
         return refreshPromise;
       },
     }),

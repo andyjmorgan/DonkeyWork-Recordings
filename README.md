@@ -1,11 +1,33 @@
 # DonkeyWork-Recordings
 
-Site + MCP server that turns posted text into podcast-style audio recordings
+Self-hosted site + **MCP server** that turns posted text into podcast-style audio recordings
 (caller-supplied paragraphs → Kokoro TTS synthesis → ffmpeg stitch → SeaweedFS). Publishes per-user
 RSS feeds for podcast apps. Modular monolith mirroring `DonkeyWork-Agents`.
 
 The caller (an MCP/REST client — typically an LLM) supplies the text already split into spoken
 paragraphs; there is no server-side LLM preprocessing.
+
+Hosted at **https://recordings.donkeywork.dev** (MCP at `…/mcp`).
+
+## What it does
+
+- **MCP-first** — an agent drives the whole thing over `POST /mcp`: create channels, post recordings,
+  poll status, re-record. REST under `/api/v1` mirrors it.
+- **Kokoro TTS** with multiple graded voices; default voice **Heart** (`af_heart`), overridable per
+  channel or per recording.
+- **Channels** (collections) hold ordered **recordings**; each channel is its own podcast feed.
+- **Edit transcript & re-record in place** — the mp3 is overwritten at the same object key, so the
+  feed URL never changes.
+- **Per-user RSS feeds + a master feed** with full iTunes / Apple Podcasts metadata, including a
+  one-tap `podcast://` Apple Podcasts link.
+- **Scoped API keys** (`RestAndMcp` / `McpOnly` / `RestOnly`) so agents authenticate headlessly;
+  Keycloak JWT or API key via MultiAuth.
+
+## Documentation
+
+User-facing docs live in [`docs/`](./docs/): [overview](./docs/overview.md),
+[how it works](./docs/how-it-works.md), the [MCP guide](./docs/mcp.md),
+[REST & API keys](./docs/rest-api.md), and [subscribing in a podcast app](./docs/subscribe.md).
 
 ## Pipeline
 
@@ -19,8 +41,8 @@ HTTP/MCP create (paragraphs[]) → insert Pending row + enqueue → background w
   → recording row Status=Ready
 ```
 
-In-memory `Channel<T>` + `BackgroundService` for now (drop-in swap for Wolverine+NATS once we've
-proven the pipeline end-to-end against real Kokoro/SeaweedFS).
+In-memory `Channel<T>` + `BackgroundService` for now — designed to drop in a durable message queue
+later once the pipeline is proven end-to-end against real Kokoro/SeaweedFS.
 
 **Re-recording.** Editing a recording's transcript re-runs the same pipeline against the existing
 recording id (`POST /api/v1/recordings/{id}/regenerate`, or the `regenerate_audio_recording` MCP

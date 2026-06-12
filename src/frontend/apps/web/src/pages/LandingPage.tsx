@@ -79,8 +79,8 @@ const features = [
   },
   {
     icon: KeyRound,
-    title: 'Scoped API keys',
-    body: 'Mint X-Api-Key keys scoped to REST + MCP, MCP-only or REST-only so agents authenticate headlessly. Backed by Keycloak JWT or API key via MultiAuth.',
+    title: 'OAuth or scoped API keys',
+    body: 'Interactive MCP clients sign in over OAuth (Keycloak) automatically — the endpoint advertises its protected-resource metadata. Headless clients mint X-Api-Key keys scoped to REST + MCP, MCP-only or REST-only. MultiAuth accepts either.',
   },
 ];
 
@@ -175,8 +175,8 @@ export function LandingPage() {
           <CopyChip value={MCP_ENDPOINT} />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Point your agent here and authenticate with a scoped{' '}
-          <code className="text-accent">X-Api-Key</code>. No browser login required.
+          Point your agent here — it signs in over OAuth automatically, or use a scoped{' '}
+          <code className="text-accent">X-Api-Key</code> for headless clients.
         </p>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

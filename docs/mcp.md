@@ -10,23 +10,44 @@ browser involved.
 POST https://recordings.donkeywork.dev/mcp
 ```
 
-The MCP server is mounted at `POST /mcp` and is auth-gated.
+The MCP server is mounted at `POST /mcp` and is auth-gated. It supports two ways to authenticate —
+**OAuth** for interactive clients and a **scoped API key** for headless ones.
 
 ## Authentication
 
-Authenticate with a **scoped API key** sent as an `X-Api-Key` header. Create a key from the web app
-(**Profile → API Keys → New key**) and choose a scope that includes MCP:
+### OAuth (interactive clients — recommended)
+
+The endpoint is an OAuth 2.1 **protected resource**: it advertises
+`/.well-known/oauth-protected-resource`, which points compliant MCP clients (Claude Desktop, Claude
+Code, …) at the Keycloak authorization server. Just give the client the URL — nothing else:
+
+```json
+{
+  "mcpServers": {
+    "donkeywork-recordings": {
+      "url": "https://recordings.donkeywork.dev/mcp"
+    }
+  }
+}
+```
+
+On first use the client receives a `401` whose `WWW-Authenticate` header points at the resource
+metadata, discovers Keycloak from it, and runs the browser authorization-code flow (scopes
+`openid profile email offline_access recordings-audience`). It then calls `/mcp` with an
+`Authorization: Bearer …` token, refreshed automatically via `offline_access` — no secret to copy or
+store.
+
+### Scoped API key (headless clients)
+
+For cron jobs, scripts, or any non-interactive client, authenticate with a **scoped API key** sent as
+an `X-Api-Key` header instead. Create a key from the web app (**Profile → API Keys → New key**) and
+choose a scope that includes MCP:
 
 - **REST + MCP** — full access (`RestAndMcp`).
 - **MCP only** — the MCP endpoint only (`McpOnly`).
 
 Keys are shown unmasked exactly once at creation — copy the secret then. The scope is enforced on
 every request; a mis-scoped call returns `401`.
-
-> The hosted MCP server also accepts a Keycloak JWT, but for agents the API key is the path of least
-> resistance — no interactive login.
-
-Configure your MCP client with the endpoint and the header, for example:
 
 ```json
 {
@@ -39,9 +60,11 @@ Configure your MCP client with the endpoint and the header, for example:
 }
 ```
 
+Both methods resolve to the same user; tools run as that identity either way.
+
 ## Tools
 
-All tools operate as the user who owns the API key.
+All tools operate as the authenticated user — the OAuth subject, or the owner of the API key.
 
 ### Recordings
 

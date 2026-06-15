@@ -28,6 +28,7 @@ const INHERIT_VALUE = '__inherit__';
 export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [coverImagePath, setCoverImagePath] = useState('');
   const [defaultVoice, setDefaultVoice] = useState('');
   const [defaultLanguage, setDefaultLanguage] = useState('en-US');
   const [submitting, setSubmitting] = useState(false);
@@ -42,6 +43,7 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
     if (open) {
       setName(editing?.name ?? '');
       setDescription(editing?.description ?? '');
+      setCoverImagePath(editing?.coverImagePath ?? '');
       setDefaultVoice(editing?.defaultVoice ?? '');
       setDefaultLanguage(editing?.defaultLanguage ?? 'en-US');
     }
@@ -129,6 +131,9 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
       const payload = {
         name: name.trim(),
         description: description.trim(),
+        // Always send (even when blank) so clearing the field resets the channel
+        // to the default cover; the feed falls back to the default when blank.
+        coverImagePath: coverImagePath.trim(),
         defaultVoice: defaultVoice.trim() || undefined,
         defaultLanguage: defaultLanguage.trim() || undefined,
       };
@@ -149,7 +154,7 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit channel' : 'New channel'}</DialogTitle>
@@ -165,7 +170,14 @@ export function AudioCollectionFormDialog({ open, onOpenChange, editing, onSaved
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="What this channel is about." />
+              <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={5} placeholder="What this channel is about." />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="coverImagePath">Cover image URL</Label>
+              <Input id="coverImagePath" type="url" value={coverImagePath} onChange={(e) => setCoverImagePath(e.target.value)} placeholder="https://…" />
+              <p className="text-xs text-muted-foreground">
+                Used as the podcast artwork for this channel. Leave blank to use the DonkeyWork default cover.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

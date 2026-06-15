@@ -1,27 +1,103 @@
-# DonkeyWork-Recordings
+# DonkeyWork Recordings
 
-Self-hosted site + **MCP server** that turns posted text into podcast-style audio recordings
-(caller-supplied paragraphs → Kokoro TTS synthesis → ffmpeg stitch → SeaweedFS). Publishes per-user
-RSS feeds for podcast apps. Modular monolith mirroring `DonkeyWork-Agents`.
+**Turn text you already have into a podcast you can subscribe to.**
 
-The caller (an MCP/REST client — typically an LLM) supplies the text already split into spoken
-paragraphs; there is no server-side LLM preprocessing.
+DonkeyWork Recordings is a self-hosted service and **MCP server** that synthesises posted text into
+podcast-style audio — daily briefings, document digests, release notes read aloud — and publishes it
+as standard RSS feeds that any podcast app can subscribe to. You supply the words; it produces the
+audio and the feed.
 
 Hosted at **https://recordings.donkeywork.dev** (MCP at `…/mcp`).
 
-## What it does
+## Why use this
 
-- **MCP-first** — an agent drives the whole thing over `POST /mcp`: create channels, post recordings,
-  poll status, re-record. REST under `/api/v1` mirrors it.
-- **Kokoro TTS** with multiple graded voices; default voice **Heart** (`af_heart`), overridable per
-  channel or per recording.
-- **Channels** (collections) hold ordered **recordings**; each channel is its own podcast feed.
-- **Edit transcript & re-record in place** — the mp3 is overwritten at the same object key, so the
-  feed URL never changes.
-- **Per-user RSS feeds + a master feed** with full iTunes / Apple Podcasts metadata, including a
-  one-tap `podcast://` Apple Podcasts link.
-- **Scoped API keys** (`RestAndMcp` / `McpOnly` / `RestOnly`) so agents authenticate headlessly;
-  Keycloak JWT or API key via MultiAuth.
+- **Built for agents.** The primary client is an LLM agent talking to a first-class MCP server. Your
+  agent can create channels, post recordings, watch them synthesise, and re-record — with no browser
+  involved. A plain REST API mirrors every MCP tool for scripts and cron jobs.
+- **Predictable, not magic.** There is no server-side LLM preprocessing. What you send is exactly
+  what gets read, with a natural pause between paragraphs. The service synthesises and publishes; your
+  agent does the editorial work.
+- **It lands in a real podcast app.** Recordings publish as RSS feeds with full iTunes / Apple
+  Podcasts metadata, so they show up in Apple Podcasts, Overcast, Pocket Casts, AntennaPod — anything
+  that speaks RSS.
+- **Self-hosted.** Run your own text-to-speech podcast pipeline instead of depending on a SaaS.
+
+## Feature highlights
+
+- **Natural-sounding voices.** Speech is synthesised with **Kokoro TTS** across multiple graded
+  voices and BCP-47 languages. The default voice is **Heart** (`af_heart`); set a default per channel
+  or override it per recording.
+- **Channels that are podcast feeds.** A **channel** (called a *collection* in the API) is a named
+  container that doubles as a podcast feed and holds an ordered list of recordings. It carries a
+  default voice and language that new recordings inherit, plus its own **cover art** — override it per
+  channel or fall back to the default.
+- **Per-user RSS feeds, plus a master feed.** Every user gets one feed per channel and a master feed
+  aggregating every recording across all channels, each with full iTunes metadata and cover image.
+- **One-tap Apple Podcasts.** Channel and Feed Settings pages expose a `podcast://` deep link that
+  opens Apple Podcasts straight to your feed and subscribes — no copy-paste.
+- **Transcripts included.** Every recording carries a stored transcript, served as both plain text
+  and **WebVTT**, and referenced from the feed so podcast apps can show captions.
+- **Edit and re-record in place.** Fix a transcript and re-synthesise against the same recording id —
+  the mp3 is overwritten at the same storage key, so the feed URL never changes and subscribers simply
+  get the updated audio on the next refresh.
+- **Headless or interactive auth.** The MCP endpoint is an OAuth 2.1 protected resource for
+  interactive clients (Claude Desktop, Claude Code) *and* accepts **scoped API keys** for cron jobs
+  and scripts. Either way, tools run as the same user.
+
+## Quick start
+
+### Use it from an agent (MCP)
+
+Point a compliant MCP client at the endpoint — for interactive clients that is all you need; the
+client discovers Keycloak and runs the browser auth flow on first use:
+
+```json
+{
+  "mcpServers": {
+    "donkeywork-recordings": {
+      "url": "https://recordings.donkeywork.dev/mcp"
+    }
+  }
+}
+```
+
+For headless clients, create a scoped API key in the web app (**Profile → API Keys → New key**) and
+send it as an `X-Api-Key` header. Then a typical agent flow is: `create_audio_collection` → split
+your text into spoken paragraphs → `create_audio_recording` → poll `get_audio_recording` until
+`Ready`. See the [MCP guide](./docs/mcp.md) for the full tool list and a worked example.
+
+### Use it from a script (REST)
+
+Everything the MCP server can do is available under `/api/v1`. Authenticate with an `X-Api-Key`:
+
+```bash
+export DWR=https://recordings.donkeywork.dev
+export KEY=dk_your_key_here
+
+# Create a channel
+COLLECTION_ID=$(curl -s -X POST "$DWR/api/v1/collections" \
+  -H "X-Api-Key: $KEY" -H "Content-Type: application/json" \
+  -d '{"name":"Morning Briefing","defaultVoice":"af_heart","defaultLanguage":"en-US"}' \
+  | jq -r '.id')
+
+# Post a recording (paragraphs you split yourself)
+RECORDING_ID=$(curl -s -X POST "$DWR/api/v1/recordings/generate" \
+  -H "X-Api-Key: $KEY" -H "Content-Type: application/json" \
+  -d "{\"collectionId\":\"$COLLECTION_ID\",\"name\":\"Briefing — 12 June\",
+       \"paragraphs\":[\"Good morning. Here is your briefing.\",\"First up: the markets opened higher.\"]}" \
+  | jq -r '.id')
+
+# Poll until Ready, then filePath is the public mp3 URL
+curl -s "$DWR/api/v1/recordings/$RECORDING_ID" -H "X-Api-Key: $KEY" \
+  | jq '{status, progress, filePath, durationSeconds}'
+```
+
+See the [REST & API keys quickstart](./docs/rest-api.md) for the full surface.
+
+### Subscribe in a podcast app
+
+Copy a feed URL from the channel or Feed Settings page and add it to your podcast app, or tap the
+**Apple Podcasts** button for one-tap subscribe. See [Subscribe in a podcast app](./docs/subscribe.md).
 
 ## Documentation
 
@@ -29,7 +105,12 @@ User-facing docs live in [`docs/`](./docs/): [overview](./docs/overview.md),
 [how it works](./docs/how-it-works.md), the [MCP guide](./docs/mcp.md),
 [REST & API keys](./docs/rest-api.md), and [subscribing in a podcast app](./docs/subscribe.md).
 
-## Pipeline
+## How it works
+
+The caller supplies the text already split into spoken paragraphs; synthesis runs asynchronously on a
+background worker. A recording starts `Pending`, moves through `Generating` (with live progress), and
+ends at `Ready` (with a public mp3 URL, duration, and transcript) or `Failed` — poll the recording
+until it settles.
 
 ```
 HTTP/MCP create (paragraphs[]) → insert Pending row + enqueue → background worker
@@ -41,28 +122,31 @@ HTTP/MCP create (paragraphs[]) → insert Pending row + enqueue → background w
   → recording row Status=Ready
 ```
 
-In-memory `Channel<T>` + `BackgroundService` for now — designed to drop in a durable message queue
-later once the pipeline is proven end-to-end against real Kokoro/SeaweedFS.
+The queue is an in-memory `Channel<T>` drained by a hosted `BackgroundService` for now — designed to
+drop in a durable message queue later once the pipeline is proven end-to-end against real
+Kokoro/SeaweedFS.
 
 **Re-recording.** Editing a recording's transcript re-runs the same pipeline against the existing
 recording id (`POST /api/v1/recordings/{id}/regenerate`, or the `regenerate_audio_recording` MCP
 tool), so the mp3 is overwritten in place at the same `{userId}/{recordingId}.mp3` object key — the
 feed URL never changes. Voice, language, channel and metadata are preserved; only the audio and
-transcript change. The web edit dialog renders the whole transcript and splits it back into
-paragraphs on blank lines before re-recording.
+transcript change. The web edit dialog renders the whole transcript and splits it back into paragraphs
+on blank lines before re-recording.
 
-## Stack
+## Architecture & stack
+
+This is a modular monolith mirroring `DonkeyWork-Agents`.
 
 | | |
 |---|---|
 | Backend | .NET 10, EF Core (Postgres), Kokoro TTS, SeaweedFS (S3) |
 | MCP | `ModelContextProtocol.AspNetCore` at `POST /mcp` (publicly `https://recordings.donkeywork.dev/mcp`, auth-gated via MultiAuth) |
-| Auth | Keycloak (existing `Agents` realm, audience `donkeywork-recordings-api`); MultiAuth accepts a Keycloak JWT **or** a user API key, so programmatic/MCP clients can use a key |
+| Auth | Keycloak (existing `Agents` realm, audience `donkeywork-recordings-api`); MultiAuth accepts a Keycloak JWT **or** a user API key, so programmatic/MCP clients can use a key. The MCP endpoint is also an OAuth 2.1 protected resource for interactive clients |
 | Frontend | React 19, Vite 7, Tailwind 3, Zustand, react-router-dom v7 — theme + auth lifted from `DonkeyWork-Agents` |
 | CI | GitHub Actions on self-hosted runners; images pushed to Nexus on main + semver tagged |
 | Infra | Provisioned out-of-band by the k3s-agentling: office cluster namespace `donkeywork-recordings` (API + web behind ingress `recordings.donkeywork.dev`), attic SeaweedFS for the public-read `recordings` bucket served at `s3.donkeywork.dev` |
 
-## Layout
+### Layout
 
 ```
 DonkeyWork.Recordings.slnx

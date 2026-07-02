@@ -46,6 +46,22 @@ internal static class AudioMappings
         UpdatedAt = entity.UpdatedAt,
     };
 
+    public static BacklogItemV1 ToV1(this TtsBacklogItemEntity entity, string? consumedByRecordingName = null) => new()
+    {
+        Id = entity.Id,
+        CollectionId = entity.CollectionId,
+        Title = entity.Title,
+        Content = entity.Content,
+        SourceUrl = entity.SourceUrl,
+        Notes = entity.Notes,
+        Status = entity.Status.ToString(),
+        ConsumedAt = entity.ConsumedAt,
+        ConsumedByRecordingId = entity.ConsumedByRecordingId,
+        ConsumedByRecordingName = consumedByRecordingName,
+        CreatedAt = entity.CreatedAt,
+        UpdatedAt = entity.UpdatedAt,
+    };
+
     public static TtsPlaybackV1 ToV1(this TtsPlaybackEntity entity) => new()
     {
         PositionSeconds = entity.PositionSeconds,

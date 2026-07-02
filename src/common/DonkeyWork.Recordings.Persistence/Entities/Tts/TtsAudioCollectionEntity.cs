@@ -23,4 +23,6 @@ public class TtsAudioCollectionEntity : BaseEntity
     public string? Link { get; set; }
 
     public ICollection<TtsRecordingEntity> Recordings { get; set; } = new List<TtsRecordingEntity>();
+
+    public ICollection<TtsBacklogItemEntity> BacklogItems { get; set; } = new List<TtsBacklogItemEntity>();
 }

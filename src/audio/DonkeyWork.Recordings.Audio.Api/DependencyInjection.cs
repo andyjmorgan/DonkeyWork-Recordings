@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IAudioGenerationService, AudioGenerationService>();
         services.AddScoped<ITtsService, TtsService>();
         services.AddScoped<IAudioCollectionService, AudioCollectionService>();
+        services.AddScoped<IBacklogService, BacklogService>();
         services.AddScoped<IFeedService, FeedService>();
         services.AddScoped<IFeedSettingsService, FeedSettingsService>();
 

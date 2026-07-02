@@ -26,6 +26,8 @@ public class RecordingsDbContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<TtsPlaybackEntity> Playback => Set<TtsPlaybackEntity>();
 
+    public DbSet<TtsBacklogItemEntity> BacklogItems => Set<TtsBacklogItemEntity>();
+
     public DbSet<UserFeedSettingsEntity> UserFeedSettings => Set<UserFeedSettingsEntity>();
 
     public DbSet<UserApiKeyEntity> UserApiKeys => Set<UserApiKeyEntity>();

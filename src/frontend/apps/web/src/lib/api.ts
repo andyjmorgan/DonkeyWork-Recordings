@@ -162,6 +162,48 @@ export const collections = {
     json<ListResponse<TtsRecordingV1>>(`/api/v1/collections/${id}/recordings?offset=${offset}&limit=${limit}`),
 };
 
+export type BacklogItemStatus = 'Pending' | 'Consumed' | 'Dismissed';
+
+export interface BacklogItemV1 {
+  id: string;
+  collectionId: string;
+  title: string;
+  content: string;
+  sourceUrl?: string;
+  notes?: string;
+  status: BacklogItemStatus;
+  consumedAt?: string;
+  consumedByRecordingId?: string;
+  consumedByRecordingName?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateBacklogItemRequest {
+  title: string;
+  content?: string;
+  sourceUrl?: string;
+  notes?: string;
+}
+
+export type UpdateBacklogItemRequest = Partial<CreateBacklogItemRequest>;
+
+export const backlog = {
+  list: (collectionId: string, status: BacklogItemStatus | 'all' = 'Pending', offset = 0, limit = 200) =>
+    json<ListResponse<BacklogItemV1>>(`/api/v1/collections/${collectionId}/backlog?status=${status}&offset=${offset}&limit=${limit}`),
+  create: (collectionId: string, req: CreateBacklogItemRequest) =>
+    json<BacklogItemV1>(`/api/v1/collections/${collectionId}/backlog`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
+    }),
+  update: (id: string, req: UpdateBacklogItemRequest) =>
+    json<BacklogItemV1>(`/api/v1/backlog/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req),
+    }),
+  dismiss: (id: string) =>
+    json<BacklogItemV1>(`/api/v1/backlog/${id}/dismiss`, { method: 'POST' }),
+  delete: (id: string) => json<void>(`/api/v1/backlog/${id}`, { method: 'DELETE' }),
+};
+
 export const voices = {
   list: () => json<VoicesResponse>('/api/v1/voices'),
   preview: async (req: { voice?: string; language: string }): Promise<Blob> => {

@@ -3,8 +3,10 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Copy, Check, MoreVertical, Trash2, FolderInput, Podcast, Pencil, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { collections, recordings, type AudioCollectionV1, type TtsRecordingV1 } from '@/lib/api';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { backlog, collections, recordings, type AudioCollectionV1, type TtsRecordingV1 } from '@/lib/api';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import { BacklogSection } from '@/components/audio/BacklogSection';
 import { MoveRecordingDialog } from '@/components/audio/MoveRecordingDialog';
 import { EditRecordingDialog } from '@/components/audio/EditRecordingDialog';
 import { useRecordingStatus } from '@/hooks/useRecordingStatus';
@@ -64,6 +66,7 @@ export function ChannelDetailPage() {
   const [moving, setMoving] = useState<TtsRecordingV1 | null>(null);
   const [editing, setEditing] = useState<TtsRecordingV1 | null>(null);
   const [copiedFeed, setCopiedFeed] = useState(false);
+  const [pendingBacklogCount, setPendingBacklogCount] = useState(0);
   const userId = useAuthStore((s) => s.user?.id);
 
   const load = async () => {
@@ -76,6 +79,10 @@ export function ChannelDetailPage() {
       ]);
       setCollection(coll);
       setItems([...list.items].sort(byNewestFirst));
+      // Badge count only — a backlog failure must not take down the channel page.
+      backlog.list(id, 'Pending', 0, 1)
+        .then((r) => setPendingBacklogCount(r.totalCount))
+        .catch(() => {});
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load channel');
     } finally {
@@ -151,27 +158,47 @@ export function ChannelDetailPage() {
         <CollapsibleDescription text={collection.description} />
       </header>
 
-      <section className="space-y-3">
-        {items.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-border p-12 text-center space-y-2">
-            <p className="text-muted-foreground">No recordings in this channel yet.</p>
-            <p className="text-sm text-muted-foreground">
-              Recordings are created through the MCP server or REST API — see your Profile for setup.
-            </p>
-          </div>
-        )}
+      <Tabs defaultValue="episodes">
+        <TabsList className="justify-start">
+          <TabsTrigger value="episodes">Episodes</TabsTrigger>
+          <TabsTrigger value="backlog">
+            Backlog
+            {pendingBacklogCount > 0 && (
+              <span className="ml-2 rounded-full bg-accent/20 px-2 py-0.5 text-xs text-accent">
+                {pendingBacklogCount}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-        {items.map((r) => (
-          <RecordingRow
-            key={r.id}
-            recording={r}
-            onUpdate={(fresh) => setItems((prev) => prev.map((x) => x.id === fresh.id ? fresh : x))}
-            onEdit={() => setEditing(r)}
-            onMove={() => setMoving(r)}
-            onDelete={() => handleDelete(r)}
-          />
-        ))}
-      </section>
+        <TabsContent value="episodes" className="mt-4">
+          <section className="space-y-3">
+            {items.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-border p-12 text-center space-y-2">
+                <p className="text-muted-foreground">No recordings in this channel yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  Recordings are created through the MCP server or REST API — see your Profile for setup.
+                </p>
+              </div>
+            )}
+
+            {items.map((r) => (
+              <RecordingRow
+                key={r.id}
+                recording={r}
+                onUpdate={(fresh) => setItems((prev) => prev.map((x) => x.id === fresh.id ? fresh : x))}
+                onEdit={() => setEditing(r)}
+                onMove={() => setMoving(r)}
+                onDelete={() => handleDelete(r)}
+              />
+            ))}
+          </section>
+        </TabsContent>
+
+        <TabsContent value="backlog" className="mt-4">
+          {id && <BacklogSection collectionId={id} onPendingCountChange={setPendingBacklogCount} />}
+        </TabsContent>
+      </Tabs>
 
       {editing && (
         <EditRecordingDialog

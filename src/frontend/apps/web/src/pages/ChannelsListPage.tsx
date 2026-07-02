@@ -6,6 +6,25 @@ import { collections, type AudioCollectionV1 } from '@/lib/api';
 import { AudioCollectionFormDialog } from '@/components/audio/AudioCollectionFormDialog';
 import { toast } from 'sonner';
 
+const DEFAULT_COVER = '/donkeywork.png';
+
+function ChannelCover({ src, name }: { src?: string | null; name: string }) {
+  return (
+    <img
+      src={src || DEFAULT_COVER}
+      alt={`${name} cover art`}
+      loading="lazy"
+      className="size-16 shrink-0 rounded-xl border border-border object-cover bg-muted"
+      onError={(e) => {
+        // Broken custom URLs fall back to the default mascot artwork.
+        if (e.currentTarget.src !== window.location.origin + DEFAULT_COVER) {
+          e.currentTarget.src = DEFAULT_COVER;
+        }
+      }}
+    />
+  );
+}
+
 export function ChannelsListPage() {
   const [items, setItems] = useState<AudioCollectionV1[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,12 +93,15 @@ export function ChannelsListPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((c) => (
             <div key={c.id} className="rounded-2xl border border-border bg-card p-5 space-y-3 group">
-              <Link to={`/channels/${c.id}`} className="block space-y-2 hover:opacity-90">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold leading-tight">{c.name}</h3>
-                  <span className="text-xs text-muted-foreground shrink-0">{c.recordingCount} ep</span>
+              <Link to={`/channels/${c.id}`} className="flex gap-3 hover:opacity-90">
+                <ChannelCover src={c.coverImagePath} name={c.name} />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold leading-tight truncate min-w-0">{c.name}</h3>
+                    <span className="text-xs text-muted-foreground shrink-0">{c.recordingCount} ep</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{c.description || 'No description'}</p>
                 </div>
-                <p className="text-sm text-muted-foreground line-clamp-2">{c.description || 'No description'}</p>
               </Link>
               <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
                 <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setDialogOpen(true); }}>

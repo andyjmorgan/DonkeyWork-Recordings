@@ -73,14 +73,16 @@ export function ChannelDetailPage() {
     if (!id) return;
     setLoading(true);
     try {
-      const [coll, list, pendingBacklog] = await Promise.all([
+      const [coll, list] = await Promise.all([
         collections.get(id),
         collections.listRecordings(id, 0, 500),
-        backlog.list(id, 'Pending', 0, 1),
       ]);
       setCollection(coll);
       setItems([...list.items].sort(byNewestFirst));
-      setPendingBacklogCount(pendingBacklog.totalCount);
+      // Badge count only — a backlog failure must not take down the channel page.
+      backlog.list(id, 'Pending', 0, 1)
+        .then((r) => setPendingBacklogCount(r.totalCount))
+        .catch(() => {});
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load channel');
     } finally {

@@ -42,6 +42,8 @@ async function mockChannel(page: Page) {
   await page.route(`**/api/v1/collections/${CHANNEL_ID}`, (route) => route.fulfill({ json: channel }));
   await page.route(`**/api/v1/collections/${CHANNEL_ID}/recordings**`, (route) =>
     route.fulfill({ json: { items: [recording], totalCount: 1 } }));
+  await page.route(`**/api/v1/collections/${CHANNEL_ID}/backlog**`, (route) =>
+    route.fulfill({ json: { items: [], totalCount: 0 } }));
 }
 
 async function horizontalOverflow(page: Page): Promise<number> {

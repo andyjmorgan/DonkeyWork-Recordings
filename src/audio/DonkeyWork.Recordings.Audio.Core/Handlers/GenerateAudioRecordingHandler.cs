@@ -59,6 +59,10 @@ public static class GenerateAudioRecordingHandler
             recording.StatusDetail = "Preparing the script…";
             await dbContext.SaveChangesAsync(cancellationToken);
 
+            // Regeneration re-uses the recording id, so clear any chunk clips a previous run
+            // left behind before publishing fresh ones.
+            await ClearExistingChunksAsync(recording.Id, command.UserId, dbContext, storage, logger, cancellationToken);
+
             // The caller (an MCP/REST client) supplies the text already split into spoken
             // paragraphs; we chunk each paragraph to the TTS backend's size limits.
             var chunkerOpts = new ChunkerOptions
@@ -109,7 +113,13 @@ public static class GenerateAudioRecordingHandler
                     wrapped,
                     new TtsProviderRequest(command.Voice, command.Language),
                     cancellationToken);
+
+                // Publish the finished clip so clients can start playback before the final mp3
+                // exists. Indexed over synthesized clips (not source chunks) so persisted indexes
+                // stay contiguous even when SSML normalisation skips a chunk.
+                var clipIndex = wavBytes.Count;
                 wavBytes.Add(clip.Audio);
+                await PublishChunkAsync(recording, command, clip, clipIndex, dbContext, storage, logger, cancellationToken);
                 chunkStopwatch.Stop();
 
                 chunkActivity?.SetTag("chunk.bytes", clip.Audio.LongLength);
@@ -211,6 +221,93 @@ public static class GenerateAudioRecordingHandler
                 logger.LogCritical(persistEx,
                     "Failed to persist Failed status for recording {RecordingId}", command.RecordingId);
             }
+        }
+    }
+
+    private static async Task ClearExistingChunksAsync(
+        Guid recordingId,
+        Guid userId,
+        RecordingsDbContext dbContext,
+        IStorageService storage,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        var staleChunks = await dbContext.RecordingChunks
+            .Where(c => c.RecordingId == recordingId)
+            .ToListAsync(cancellationToken);
+
+        if (staleChunks.Count == 0)
+        {
+            return;
+        }
+
+        dbContext.RecordingChunks.RemoveRange(staleChunks);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await storage.DeleteByPrefixAsync($"{userId}/{recordingId}/chunks/", cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort blob cleanup — DB rows are the source of truth.
+            logger.LogWarning(ex, "Failed to delete stale chunk objects for recording {RecordingId}", recordingId);
+        }
+    }
+
+    private static async Task PublishChunkAsync(
+        TtsRecordingEntity recording,
+        GenerateAudioRecordingCommand command,
+        TtsClipResult clip,
+        int clipIndex,
+        RecordingsDbContext dbContext,
+        IStorageService storage,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        // Chunk publication is a progressive-playback aid: if the upload hiccups the recording
+        // must still complete, so failures are logged and swallowed. A skipped index simply
+        // freezes the playable watermark and clients fall back to the final mp3.
+        try
+        {
+            await using var chunkStream = new MemoryStream(clip.Audio, writable: false);
+            var uploadResult = await storage.UploadAsync(
+                new UploadFileRequest
+                {
+                    FileName = $"{clipIndex}.wav",
+                    ContentType = "audio/wav",
+                    Content = chunkStream,
+                    KeyPrefix = $"{recording.Id}/chunks",
+                    Metadata = new Dictionary<string, string>
+                    {
+                        ["user-id"] = command.UserId.ToString(),
+                        ["recording-id"] = recording.Id.ToString(),
+                        ["chunk-index"] = clipIndex.ToString(),
+                    },
+                },
+                cancellationToken);
+
+            dbContext.RecordingChunks.Add(new TtsRecordingChunkEntity
+            {
+                UserId = command.UserId,
+                RecordingId = recording.Id,
+                Index = clipIndex,
+                StoragePath = uploadResult.ObjectKey,
+                FilePath = uploadResult.PublicUrl,
+                SizeBytes = clip.Audio.LongLength,
+                DurationSeconds = WavHeader.TryGetDurationSeconds(clip.Audio) ?? 0,
+            });
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to publish chunk {ChunkIndex} for recording {RecordingId}; generation continues",
+                clipIndex, recording.Id);
         }
     }
 }

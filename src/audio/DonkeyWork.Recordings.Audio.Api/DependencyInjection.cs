@@ -4,6 +4,7 @@ using DonkeyWork.Recordings.Audio.Contracts.Services;
 using DonkeyWork.Recordings.Audio.Core.BackgroundServices;
 using DonkeyWork.Recordings.Audio.Core.Options;
 using DonkeyWork.Recordings.Audio.Core.Services;
+using DonkeyWork.Recordings.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -28,6 +29,10 @@ public static class DependencyInjection
 
         services.AddScoped<IAudioGenerationService, AudioGenerationService>();
         services.AddScoped<ITtsService, TtsService>();
+        services.AddScoped<IRecordingEventStream>(sp =>
+            new RecordingEventStream(sp.GetRequiredService<RecordingsDbContext>()));
+        services.AddScoped<IChunkSweeper, ChunkSweeper>();
+        services.AddHostedService<ChunkSweepWorker>();
         services.AddScoped<IAudioCollectionService, AudioCollectionService>();
         services.AddScoped<IBacklogService, BacklogService>();
         services.AddScoped<IFeedService, FeedService>();

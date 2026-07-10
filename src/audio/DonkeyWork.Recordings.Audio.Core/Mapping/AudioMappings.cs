@@ -1,10 +1,13 @@
 using DonkeyWork.Recordings.Audio.Contracts.Models;
+using DonkeyWork.Recordings.Audio.Core.Helpers;
 using DonkeyWork.Recordings.Persistence.Entities.Tts;
 
 namespace DonkeyWork.Recordings.Audio.Core.Mapping;
 
 internal static class AudioMappings
 {
+    // Chunks/PlayableUpTo are populated only when the Chunks navigation was loaded (the single
+    // recording GET does; list projections leave it empty to avoid an N+1).
     public static TtsRecordingV1 ToV1(this TtsRecordingEntity entity) => new()
     {
         Id = entity.Id,
@@ -26,6 +29,20 @@ internal static class AudioMappings
         ErrorMessage = entity.ErrorMessage,
         CreatedAt = entity.CreatedAt,
         UpdatedAt = entity.UpdatedAt,
+        Chunks = entity.Chunks
+            .OrderBy(c => c.Index)
+            .Select(c => c.ToV1())
+            .ToList(),
+        PlayableUpTo = ChunkWatermark.Compute(entity.Chunks.Select(c => c.Index)),
+    };
+
+    public static TtsRecordingChunkV1 ToV1(this TtsRecordingChunkEntity entity) => new()
+    {
+        Index = entity.Index,
+        Url = entity.FilePath,
+        SizeBytes = entity.SizeBytes,
+        DurationSeconds = entity.DurationSeconds,
+        CreatedAt = entity.CreatedAt,
     };
 
     public static AudioCollectionV1 ToV1(this TtsAudioCollectionEntity entity, int recordingCount) => new()

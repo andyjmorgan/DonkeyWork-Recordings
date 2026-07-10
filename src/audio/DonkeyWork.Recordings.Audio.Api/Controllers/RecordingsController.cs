@@ -13,11 +13,16 @@ public class RecordingsController : ControllerBase
 {
     private readonly ITtsService _ttsService;
     private readonly IAudioGenerationService _generationService;
+    private readonly IRecordingEventStream _eventStream;
 
-    public RecordingsController(ITtsService ttsService, IAudioGenerationService generationService)
+    public RecordingsController(
+        ITtsService ttsService,
+        IAudioGenerationService generationService,
+        IRecordingEventStream eventStream)
     {
         _ttsService = ttsService;
         _generationService = generationService;
+        _eventStream = eventStream;
     }
 
     [HttpGet]
@@ -35,6 +40,30 @@ public class RecordingsController : ControllerBase
     {
         var recording = await _ttsService.GetRecordingAsync(id, cancellationToken);
         return recording is null ? NotFound() : recording;
+    }
+
+    // Server-Sent Events feed of a recording's generation lifecycle: chunk-ready / progress /
+    // ready / failed. Replays current state on connect, then streams live events until the
+    // recording settles or the client disconnects. Same auth as the rest of the surface
+    // (X-Api-Key or bearer token). Clients without SSE can poll GET /api/v1/recordings/{id},
+    // which carries chunks[] + playableUpTo.
+    [HttpGet("{id:guid}/events")]
+    [Produces("text/event-stream")]
+    public async Task<IActionResult> Events(Guid id, CancellationToken cancellationToken)
+    {
+        var recording = await _ttsService.GetRecordingAsync(id, cancellationToken);
+        if (recording is null)
+        {
+            return NotFound();
+        }
+
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        // The web pod's nginx sits in front of the API; without this it buffers the stream.
+        Response.Headers["X-Accel-Buffering"] = "no";
+
+        await _eventStream.StreamAsync(id, Response.Body, cancellationToken);
+        return new EmptyResult();
     }
 
     [HttpPost("generate")]

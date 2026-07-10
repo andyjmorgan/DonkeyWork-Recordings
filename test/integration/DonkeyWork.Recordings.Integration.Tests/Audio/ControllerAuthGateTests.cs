@@ -13,6 +13,7 @@ public class ControllerAuthGateTests : IClassFixture<RecordingsTestFixture>
 
     [Theory]
     [InlineData("/api/v1/recordings")]
+    [InlineData("/api/v1/recordings/00000000-0000-0000-0000-000000000001/events")]
     [InlineData("/api/v1/collections")]
     [InlineData("/api/v1/voices")]
     [InlineData("/api/v1/collections/00000000-0000-0000-0000-000000000001/backlog")]

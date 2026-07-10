@@ -37,4 +37,6 @@ public class TtsRecordingEntity : BaseEntity
     public TtsAudioCollectionEntity? Collection { get; set; }
 
     public TtsPlaybackEntity? Playback { get; set; }
+
+    public ICollection<TtsRecordingChunkEntity> Chunks { get; set; } = new List<TtsRecordingChunkEntity>();
 }

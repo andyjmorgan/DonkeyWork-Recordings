@@ -50,6 +50,7 @@ public sealed class TtsService : ITtsService
     {
         var recording = await _dbContext.Recordings
             .AsNoTracking()
+            .Include(r => r.Chunks)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         return recording?.ToV1();
@@ -76,6 +77,16 @@ public sealed class TtsService : ITtsService
             {
                 // Best-effort blob cleanup — DB row deletion is the source of truth.
             }
+        }
+
+        try
+        {
+            // Chunk clips published during generation (rows cascade with the recording).
+            await _storage.DeleteByPrefixAsync($"{recording.UserId}/{recording.Id}/chunks/", cancellationToken);
+        }
+        catch
+        {
+            // Best-effort blob cleanup — DB row deletion is the source of truth.
         }
 
         _dbContext.Recordings.Remove(recording);

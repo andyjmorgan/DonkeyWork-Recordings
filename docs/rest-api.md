@@ -59,7 +59,29 @@ POST   /api/v1/recordings/{id}/regenerate  # re-record from an edited transcript
 PUT    /api/v1/recordings/{id}             # update metadata
 DELETE /api/v1/recordings/{id}             # delete
 PUT    /api/v1/recordings/{id}/collection  # move to another channel
+GET    /api/v1/recordings/{id}/events      # Server-Sent Events: live generation lifecycle
 ```
+
+### Progressive playback (SSE + chunks)
+
+While a recording is `Generating`, each synthesized segment is published as an ephemeral WAV clip
+so clients can start playback before the final mp3 exists. Two ways to consume them:
+
+- **SSE** — `GET /api/v1/recordings/{id}/events` (same `X-Api-Key` auth) streams:
+  - `chunk-ready` — `{"index": 0, "url": "…/chunks/0.wav", "playableUpTo": 0}`
+  - `progress` — `{"progress": 0.42, "statusDetail": "Generating audio — segment 3 of 9"}`
+  - `ready` — `{"url": "…final mp3 url…"}` (stream then closes)
+  - `failed` — `{"error": "…"}` (stream then closes)
+
+  The stream replays current state on connect (already-ready chunks first), then follows live. A
+  `: keep-alive` comment is written every ~15s.
+- **Polling** — `GET /api/v1/recordings/{id}` carries `chunks[]` (`index`, `url`, `sizeBytes`,
+  `durationSeconds`) and `playableUpTo`.
+
+`playableUpTo` is the highest index N such that chunks `0..N` are all available — only fetch/play
+up to it (chunks can complete out of order). Chunk URLs are public like the final mp3's
+`filePath`. Chunks are ephemeral: they are deleted a few minutes after the recording settles, so
+switch to the final mp3 on `ready`.
 
 ### Feed settings & feeds
 

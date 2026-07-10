@@ -22,6 +22,8 @@ public class RecordingsDbContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<TtsRecordingEntity> Recordings => Set<TtsRecordingEntity>();
 
+    public DbSet<TtsRecordingChunkEntity> RecordingChunks => Set<TtsRecordingChunkEntity>();
+
     public DbSet<TtsAudioCollectionEntity> Collections => Set<TtsAudioCollectionEntity>();
 
     public DbSet<TtsPlaybackEntity> Playback => Set<TtsPlaybackEntity>();

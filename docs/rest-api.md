@@ -130,3 +130,47 @@ When `status` is `Ready`, `filePath` is the public mp3 URL and the recording is 
 feed. To fix the transcript later, POST the edited paragraphs to
 `/api/v1/recordings/$RECORDING_ID/regenerate` — the mp3 is overwritten in place and the feed URL never
 changes.
+
+## OpenAI-compatible endpoint
+
+The service also exposes an OpenAI-identical TTS surface at **`/openai/v1`**, so any OpenAI
+speech client works unmodified — point its base URL at
+`https://recordings.donkeywork.dev/openai/v1` and use a DonkeyWork API key as the OpenAI api key
+(sent as `Authorization: Bearer <key>`; `X-Api-Key` works here too). Keys scoped **REST only** or
+**REST + MCP** are accepted. Errors use OpenAI's envelope
+(`{"error":{"message","type","param","code"}}`) with OpenAI's status codes.
+
+There is exactly one model, **`kokoro`**:
+
+- `GET /openai/v1/models` — list with the single model object.
+- `GET /openai/v1/models/kokoro` — the model object; any other id is a 404 `model_not_found`.
+- `POST /openai/v1/audio/speech` — body: `model` (must be `kokoro`), `input` (max 4096 chars),
+  `voice`, `response_format`, `speed` (0.25–4.0). Long input is chunked and stitched server-side.
+  Streaming (`stream_format: "sse"`) is not supported.
+
+`response_format` supports all six OpenAI values: `mp3` (default), `opus`, `aac`, `flac`, `wav`,
+`pcm` — served with the same content types as api.openai.com.
+
+`voice` accepts any native Kokoro voice id (e.g. `af_heart`, see `GET /api/v1/voices`) **or** an
+OpenAI voice name, mapped to the closest Kokoro voice:
+
+| OpenAI voice | Kokoro voice |
+|---|---|
+| `alloy` | `af_alloy` |
+| `ash` | `am_michael` |
+| `coral` | `af_bella` |
+| `echo` | `am_echo` |
+| `fable` | `bm_fable` |
+| `nova` | `af_nova` |
+| `onyx` | `am_onyx` |
+| `sage` | `af_sarah` |
+| `shimmer` | `af_heart` |
+
+Omitting `voice` uses the service default (`af_heart`).
+
+```bash
+curl -s "$DWR/openai/v1/audio/speech" \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"model":"kokoro","input":"Hello from the compatibility surface.","voice":"nova","response_format":"mp3"}' \
+  -o hello.mp3
+```

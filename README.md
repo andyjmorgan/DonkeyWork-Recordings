@@ -43,6 +43,10 @@ Hosted at **https://recordings.donkeywork.dev** (MCP at `…/mcp`).
 - **Headless or interactive auth.** The MCP endpoint is an OAuth 2.1 protected resource for
   interactive clients (Claude Desktop, Claude Code) *and* accepts **scoped API keys** for cron jobs
   and scripts. Either way, tools run as the same user.
+- **OpenAI-compatible TTS endpoint.** Any OpenAI speech client works unmodified against
+  `/openai/v1` (`GET /models`, `POST /audio/speech`) with a DonkeyWork API key as the bearer token —
+  one model (`kokoro`), all six OpenAI response formats, and OpenAI voice names mapped to Kokoro
+  voices. See the [REST guide](./docs/rest-api.md#openai-compatible-endpoint).
 
 ## Quick start
 

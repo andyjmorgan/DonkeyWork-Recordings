@@ -44,9 +44,25 @@ public static class DependencyInjection
             .AddPolicyScheme(MultiAuthScheme, "JWT or API Key", options =>
             {
                 options.ForwardDefaultSelector = context =>
-                    context.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName)
-                        ? ApiKeyAuthenticationHandler.SchemeName
-                        : JwtBearerDefaults.AuthenticationScheme;
+                {
+                    if (context.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName))
+                    {
+                        return ApiKeyAuthenticationHandler.SchemeName;
+                    }
+
+                    // The OpenAI-compatible surface always goes to the ApiKey handler: OpenAI
+                    // SDKs send the api key as `Authorization: Bearer …`, and the handler both
+                    // reads it from there and writes OpenAI's 401 envelope on challenge. Only
+                    // /openai/* is affected — a Bearer token anywhere else is still a Keycloak JWT.
+                    if (context.Request.Path.StartsWithSegments(
+                            ApiKeyAuthenticationHandler.OpenAiCompatPathPrefix,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ApiKeyAuthenticationHandler.SchemeName;
+                    }
+
+                    return JwtBearerDefaults.AuthenticationScheme;
+                };
             })
             .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
                 ApiKeyAuthenticationHandler.SchemeName, _ => { })

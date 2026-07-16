@@ -30,7 +30,7 @@ public sealed class KokoroTtsProvider : ITtsProvider
         {
             Input = text,
             Voice = string.IsNullOrWhiteSpace(request.Voice) ? _options.DefaultVoice : request.Voice,
-            Speed = _options.Speed,
+            Speed = request.Speed ?? _options.Speed,
         };
 
         var client = _httpClientFactory.CreateClient(ProviderKey);

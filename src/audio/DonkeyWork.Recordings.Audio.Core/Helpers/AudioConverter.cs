@@ -50,6 +50,38 @@ public static class AudioConverter
             stdin: wavBytes);
     }
 
+    // ADTS AAC stream, matching what OpenAI's /audio/speech returns for response_format=aac.
+    public static byte[] WavToAac(byte[] wavBytes, int bitrateKbps = 128)
+    {
+        return RunFfmpeg(
+            args: new[] { "-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-codec:a", "aac", "-b:a", $"{bitrateKbps}k", "-f", "adts", "pipe:1" },
+            stdin: wavBytes);
+    }
+
+    // Ogg-encapsulated Opus, matching what OpenAI's /audio/speech returns for response_format=opus.
+    public static byte[] WavToOggOpus(byte[] wavBytes, int bitrateKbps = 96)
+    {
+        return RunFfmpeg(
+            args: new[] { "-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-codec:a", "libopus", "-b:a", $"{bitrateKbps}k", "-f", "ogg", "pipe:1" },
+            stdin: wavBytes);
+    }
+
+    public static byte[] WavToFlac(byte[] wavBytes)
+    {
+        return RunFfmpeg(
+            args: new[] { "-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-codec:a", "flac", "-f", "flac", "pipe:1" },
+            stdin: wavBytes);
+    }
+
+    // Raw signed 16-bit little-endian PCM samples with no container, forced to mono, keeping the
+    // source clip's sample rate — matching OpenAI's response_format=pcm.
+    public static byte[] WavToPcm(byte[] wavBytes)
+    {
+        return RunFfmpeg(
+            args: new[] { "-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-ac", "1", "-codec:a", "pcm_s16le", "-f", "s16le", "pipe:1" },
+            stdin: wavBytes);
+    }
+
     public static double ProbeDurationSeconds(byte[] mediaBytes)
     {
         // ffprobe reads only as much of -i pipe:0 as it needs and then stops draining stdin,

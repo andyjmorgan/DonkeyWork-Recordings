@@ -19,6 +19,11 @@ public sealed class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAu
     public const string SchemeName = "ApiKey";
     public const string HeaderName = "X-Api-Key";
 
+    // The OpenAI-compatible surface. OpenAI SDKs send the api key as `Authorization: Bearer …`,
+    // so on these paths (and only these paths) a Bearer token is treated as a DonkeyWork API key.
+    // X-Api-Key keeps working there too. MultiAuth routes every /openai request to this handler.
+    public const string OpenAiCompatPathPrefix = "/openai";
+
     public ApiKeyAuthenticationHandler(
         IOptionsMonitor<ApiKeyAuthenticationOptions> options,
         ILoggerFactory logger,
@@ -29,12 +34,7 @@ public sealed class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAu
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!Request.Headers.TryGetValue(HeaderName, out var headerValue))
-        {
-            return AuthenticateResult.NoResult();
-        }
-
-        var apiKey = headerValue.ToString();
+        var apiKey = ExtractApiKey();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             return AuthenticateResult.NoResult();
@@ -71,8 +71,52 @@ public sealed class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAu
         return AuthenticateResult.Success(new AuthenticationTicket(principal, SchemeName));
     }
 
+    // Missing/invalid credentials on the OpenAI-compatible surface must produce OpenAI's error
+    // envelope (401, code "invalid_api_key") rather than the default empty challenge, so
+    // unmodified OpenAI SDKs surface a sensible error. Other paths keep the standard behaviour.
+    protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
+    {
+        if (IsOpenAiCompatRequest())
+        {
+            Response.StatusCode = StatusCodes.Status401Unauthorized;
+            Response.ContentType = "application/json";
+            await Response.WriteAsync(
+                """{"error":{"message":"Incorrect API key provided. You can create an API key in the web app under Profile → API Keys.","type":"invalid_request_error","param":null,"code":"invalid_api_key"}}""");
+            return;
+        }
+
+        await base.HandleChallengeAsync(properties);
+    }
+
+    private bool IsOpenAiCompatRequest()
+        => Request.Path.StartsWithSegments(OpenAiCompatPathPrefix, StringComparison.OrdinalIgnoreCase);
+
+    private string? ExtractApiKey()
+    {
+        if (Request.Headers.TryGetValue(HeaderName, out var headerValue))
+        {
+            return headerValue.ToString();
+        }
+
+        // Bearer-as-api-key applies strictly to the OpenAI-compatible surface; elsewhere a Bearer
+        // token stays a Keycloak JWT handled by the JwtBearer scheme.
+        if (IsOpenAiCompatRequest()
+            && Request.Headers.TryGetValue("Authorization", out var authorization))
+        {
+            var value = authorization.ToString();
+            const string bearerPrefix = "Bearer ";
+            if (value.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return value[bearerPrefix.Length..].Trim();
+            }
+        }
+
+        return null;
+    }
+
     // McpOnly: only the MCP endpoint (mounted at "/mcp" — see Mcp.Api MapMcp).
-    // RestOnly: only /api/* (regular controllers). RestAndMcp: no restriction.
+    // RestOnly: /api/* (regular controllers) plus the OpenAI-compatible REST surface (/openai/*).
+    // RestAndMcp: no restriction.
     private bool IsScopeAllowed(ApiKeyScope scope)
     {
         if (scope == ApiKeyScope.RestAndMcp)
@@ -83,7 +127,8 @@ public sealed class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAu
         var path = Request.Path.Value ?? string.Empty;
         var isMcp = path.Equals("/mcp", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("/mcp/", StringComparison.OrdinalIgnoreCase);
-        var isRest = path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase);
+        var isRest = path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
+            || IsOpenAiCompatRequest();
 
         return scope switch
         {

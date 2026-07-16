@@ -12,7 +12,9 @@ public interface ITtsProvider
     Task<IReadOnlyList<TtsVoice>> ListVoicesAsync(CancellationToken cancellationToken = default);
 }
 
-public sealed record TtsProviderRequest(string Voice, string Language);
+// Speed is an optional playback-rate multiplier (1.0 = normal). Null lets the provider use its
+// configured default, so existing callers are untouched.
+public sealed record TtsProviderRequest(string Voice, string Language, double? Speed = null);
 
 public sealed record TtsClipResult(byte[] Audio, string ContentType, int SampleRateHz);
 

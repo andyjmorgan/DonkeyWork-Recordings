@@ -2,7 +2,10 @@ using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using DonkeyWork.Recordings.Audio.Contracts.Services;
+using System.Net;
 using DonkeyWork.Recordings.Audio.Core.Options;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace DonkeyWork.Recordings.Audio.Core.Services;
@@ -13,11 +16,16 @@ public sealed class KokoroTtsProvider : ITtsProvider
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly KokoroOptions _options;
+    private readonly ILogger<KokoroTtsProvider> _logger;
 
-    public KokoroTtsProvider(IHttpClientFactory httpClientFactory, IOptions<KokoroOptions> options)
+    public KokoroTtsProvider(
+        IHttpClientFactory httpClientFactory,
+        IOptions<KokoroOptions> options,
+        ILogger<KokoroTtsProvider>? logger = null)
     {
         _httpClientFactory = httpClientFactory;
         _options = options.Value;
+        _logger = logger ?? NullLogger<KokoroTtsProvider>.Instance;
     }
 
     public string Key => ProviderKey;
@@ -33,14 +41,55 @@ public sealed class KokoroTtsProvider : ITtsProvider
             Speed = request.Speed ?? _options.Speed,
         };
 
-        var client = _httpClientFactory.CreateClient(ProviderKey);
-        using var response = await client.PostAsJsonAsync("v1/audio/speech", payload, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var maxAttempts = Math.Max(1, _options.MaxAttempts);
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient(ProviderKey);
+                using var response = await client.PostAsJsonAsync("v1/audio/speech", payload, cancellationToken);
+                if (IsTransient(response.StatusCode) && attempt < maxAttempts)
+                {
+                    await BackoffAsync(attempt, maxAttempts, $"HTTP {(int)response.StatusCode}", null, cancellationToken);
+                    continue;
+                }
 
-        var wavBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-        var contentType = response.Content.Headers.ContentType?.MediaType ?? "audio/wav";
+                response.EnsureSuccessStatusCode();
 
-        return new TtsClipResult(wavBytes, contentType, _options.SampleRateHz);
+                var wavBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "audio/wav";
+
+                return new TtsClipResult(wavBytes, contentType, _options.SampleRateHz);
+            }
+            catch (Exception ex) when (attempt < maxAttempts && IsTransient(ex, cancellationToken))
+            {
+                await BackoffAsync(attempt, maxAttempts, ex.GetType().Name, ex, cancellationToken);
+            }
+        }
+    }
+
+    // 502/503/504/429 come from proxies or an overloaded backend and clear on their own. A plain 500 is
+    // Kokoro reporting a synthesis failure for this input, which would fail the same way again.
+    private static bool IsTransient(HttpStatusCode status) =>
+        status is HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable
+            or HttpStatusCode.GatewayTimeout or HttpStatusCode.TooManyRequests;
+
+    // Connection refused/reset (replica killed mid-request) and the per-request HttpClient timeout.
+    // A cancellation the caller asked for is never retried.
+    private static bool IsTransient(Exception ex, CancellationToken callerToken) =>
+        !callerToken.IsCancellationRequested
+        && ex is HttpRequestException { StatusCode: null } or TaskCanceledException or IOException;
+
+    private async Task BackoffAsync(int attempt, int maxAttempts, string reason, Exception? ex, CancellationToken cancellationToken)
+    {
+        var delay = TimeSpan.FromTicks(_options.RetryBaseDelay.Ticks * (1L << (attempt - 1)));
+        _logger.LogWarning(ex,
+            "Kokoro synth attempt {Attempt}/{MaxAttempts} failed ({Reason}); retrying in {DelaySeconds}s",
+            attempt, maxAttempts, reason, delay.TotalSeconds);
+        if (delay > TimeSpan.Zero)
+        {
+            await Task.Delay(delay, cancellationToken);
+        }
     }
 
     public async Task<IReadOnlyList<TtsVoice>> ListVoicesAsync(CancellationToken cancellationToken = default)
